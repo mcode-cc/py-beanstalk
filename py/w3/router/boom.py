@@ -8,14 +8,19 @@ __version__ = '0.2.1'
 
 class Router(object):
 
-    def __init__(self, nodes=None, subscribe=None, log=None):
+    def __init__(self, nodes=None, subscribe=None, log=None, spot='press.root'):
         self.nodes = nodes
         self.log = log
         self.subscribe = subscribe
         self.execute = True
+        self.route = {}
+        self.spot = spot
 
-    def add(self, path=None, method=None, callback=None):
-        pass
+    def add(self, schema=None, method=None, callback=None):
+        if callback is not None:
+            self.route[
+                '.'.join((self.spot, schema, method))
+            ] = callback
 
     def send(self, message):
         if message['subscribe'] in self.subscribe:
@@ -44,10 +49,15 @@ class Router(object):
             try:
                 job = w.reserve(timeout=5)
                 if job is not None:
-                    self.receive(
-                        json.loads(str(job.body).encode('utf-8')),
-                        channel
-                    )
+                    message = json.loads(str(job.body).encode('utf-8'))
+                    if (
+                        isinstance(message, dict) and
+                        'subscribe' in message and
+                        message['subscribe'] in self.route
+                    ):
+                        self.route[message['subscribe']](message, channel)
+                    else:
+                        self.receive(message, channel)
                     job.delete()
             except Exception, e:
                 self.log.error(e)

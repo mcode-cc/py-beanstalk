@@ -17,10 +17,10 @@ class Router(object):
         self.app = Bottle()
         self.channel = 'wsgiref@127.0.0.1:8080'
 
-    def add(self, path=None, method=None, callback=None):
+    def add(self, schema=None, method=None, callback=None):
         try:
             self.app.route(
-                path=path,
+                path=schema,
                 method=method or ['GET', 'POST'],
                 callback=callback or self.receive
             )
