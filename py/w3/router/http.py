@@ -4,18 +4,19 @@ import json
 from bottle import Bottle
 from bottle import server_names
 
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 
 
 class Router(object):
 
-    def __init__(self, nodes=None, subscribe=None, log=None):
+    def __init__(self, nodes=None, subscribe=None, log=None, spot='press.root'):
         self.nodes = nodes
         self.log = log
         self.subscribe = subscribe
         self.execute = True
         self.app = Bottle()
         self.channel = 'wsgiref@127.0.0.1:8080'
+        self.spot = spot
 
     def add(self, schema=None, method=None, callback=None):
         try:
