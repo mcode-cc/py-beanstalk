@@ -2,7 +2,7 @@
 
 import json
 import signal
-__author__ = 'Andrey Aleksandrov'
+
 __version__ = '0.2.1'
 
 
@@ -14,6 +14,9 @@ class Router(object):
         self.subscribe = subscribe
         self.execute = True
 
+    def add(self, path=None, method=None, callback=None):
+        pass
+
     def send(self, message):
         if message['subscribe'] in self.subscribe:
             for channel in self.subscribe[message['subscribe']]:
@@ -22,8 +25,16 @@ class Router(object):
                 w.use(tube)
                 w.put(json.dumps(message))
 
+    def receive(self, message, channel=None):
+        if (
+            isinstance(message, dict) and
+            '@context' in message and
+            message['@context'] == 'message'
+        ):
+            self.send(message)
+
     def run(self, channel=None):
-        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
         tube, node = channel.split('@')
         self.log.debug(channel)
         w = self.nodes[node]
@@ -43,14 +54,6 @@ class Router(object):
                 if job is not None:
                     job.delete()
 
-    def receive(self, message, channel=None):
-        if (
-            isinstance(message, dict) and
-            '@context' in message and
-            message['@context'] == 'message'
-        ):
-            self.send(message)
-
-    def signal_handler(self, signum, frame):
+    def _signal_handler(self, signum, frame):
         self.log.debug("exit")
         self.execute = False

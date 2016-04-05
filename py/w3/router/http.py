@@ -4,7 +4,6 @@ import json
 from bottle import Bottle
 from bottle import server_names
 
-__author__ = 'Andrey Aleksandrov'
 __version__ = '0.2.1'
 
 
@@ -23,13 +22,10 @@ class Router(object):
             self.app.route(
                 path=path,
                 method=method or ['GET', 'POST'],
-                callback=callback or self.handler
+                callback=callback or self.receive
             )
         except Exception, e:
             self.log.error("%s: %s" % (self.__class__.__name__, str(e)))
-
-    def handler(self, *args, **kwargs):
-        pass
 
     def send(self, message):
         if message['subscribe'] in self.subscribe:
@@ -38,6 +34,9 @@ class Router(object):
                 w = self.nodes[node]
                 w.use(tube)
                 w.put(json.dumps(message))
+
+    def receive(self, *args, **kwargs):
+        pass
 
     def run(self, channel=None):
         if channel is not None:
