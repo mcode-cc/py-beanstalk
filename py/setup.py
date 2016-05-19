@@ -35,6 +35,8 @@ from setuptools import setup, find_packages
 
 base_dir = os.path.dirname(__file__)
 about = {}
+if base_dir:
+    os.chdir(base_dir)
 with open(os.path.join(base_dir, "w3", "__about__.py")) as f:
     exec(f.read(), about)
 

@@ -3,18 +3,19 @@
 import json
 import signal
 
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 
 
 class Router(object):
 
-    def __init__(self, nodes=None, subscribe=None, log=None, spot='press.root'):
+    def __init__(self, nodes=None, subscribe=None, log=None, spot='press.root', waiting=5):
         self.nodes = nodes
         self.log = log
         self.subscribe = subscribe
         self.execute = True
         self.route = {}
         self.spot = spot
+        self.waiting = waiting
 
     def add(self, schema=None, method=None, callback=None):
         if callback is not None:
@@ -38,6 +39,9 @@ class Router(object):
         ):
             self.send(message)
 
+    def timeout(self):
+        pass
+
     def run(self, channel=None):
         signal.signal(signal.SIGINT, self._signal_handler)
         tube, node = channel.split('@')
@@ -47,7 +51,7 @@ class Router(object):
         while self.execute:
             job = None
             try:
-                job = w.reserve(timeout=5)
+                job = w.reserve(timeout=self.waiting)
                 if job is not None:
                     message = json.loads(str(job.body).encode('utf-8'))
                     if (
@@ -59,6 +63,8 @@ class Router(object):
                     else:
                         self.receive(message, channel)
                     job.delete()
+                else:
+                    self.timeout()
             except Exception, e:
                 self.log.error(e)
                 if job is not None:
