@@ -56,7 +56,8 @@ setup(
     platforms=('Any'),
     extras_require={
         'system': [
-            'json>=2.0.9'
+            'json>=2.0.9',
+            'pymongo>3.2'
         ]
     },
     packages=find_packages(),

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import json
+from bson import json_util
 import signal
 
 __version__ = '0.2.3'
@@ -29,7 +30,7 @@ class Router(object):
                 tube, node = channel.split('@')
                 w = self.nodes[node]
                 w.use(tube)
-                w.put(json.dumps(message))
+                w.put(json.dumps(message, default=json_util.default))
 
     def receive(self, message, channel=None):
         if (
