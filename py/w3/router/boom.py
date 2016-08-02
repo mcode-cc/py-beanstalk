@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 
+import os
 import json
-from bson import json_util
 import signal
+from bson import json_util
+from time import time
+from hashlib import md5
 
-__version__ = '0.2.3'
+
+__version__ = '0.2.4'
 
 
 class Router(object):
@@ -15,6 +19,7 @@ class Router(object):
         self.subscribe = subscribe
         self.execute = True
         self.route = {}
+        self.pid = os.getpid()
         self.spot = spot
         self.waiting = waiting
 
@@ -23,6 +28,26 @@ class Router(object):
             self.route[
                 '.'.join((self.spot, schema, method))
             ] = callback
+
+    def message(self, value, subscribe, sender=None):
+        sender = sender or {"uid": self.pid, "version": __version__}
+        result = {
+            '@context': 'message',
+            "subscribe": subscribe,
+            "sender": sender,
+            "body": value
+        }
+        post = json.dumps(
+            result,
+            sort_keys=True,
+            separators=(',', ':'),
+            default=json_util.default
+        )
+        token = md5(post).hexdigest()
+        result["size"] = len(post)
+        result["token"] = token
+        result["created"] = int(time())
+        return result
 
     def send(self, message):
         if message['subscribe'] in self.subscribe:
