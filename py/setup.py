@@ -62,7 +62,7 @@ setup(
     },
     packages=find_packages(),
     include_package_data=True,
-    test_suite='tests',
+    test_suite='test',
     data_files=[('.', ['LICENSE', 'COPYRIGHT'])],
     zip_safe=False,
     classifiers=[
