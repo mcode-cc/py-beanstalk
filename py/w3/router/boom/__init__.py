@@ -3,19 +3,20 @@
 import signal
 from uritools import urisplit
 from .. import Base
-from nodes import Nodes
+from time import sleep
+from messages import Nodes, is_context, default_router
 
-__version__ = '0.2.5'
+__version__ = '0.4.0'
 
 
 class Router(Base):
 
     def __init__(self, log=None, spot='press.root', waiting=5):
         super(Router, self).__init__(log=log, spot=spot, waiting=waiting)
-        self.nodes = Nodes(self, log)
+        self.nodes = Nodes(self.spot, log)
 
     def parse(self, value=None):
-        tube, node, host, port, cluster = 'receive', self.sender["host"], '127.0.0.1', 11300, []
+        tube, node, host, port, nodes = 'receive', self.sender["host"], '127.0.0.1', 11300, []
         if value is not None:
             uri = urisplit(value)
             if uri.scheme is not None and uri.scheme == "boom":
@@ -24,11 +25,16 @@ class Router(Base):
                     tube = uri.userinfo.partition(':')[2] or tube
                 host = uri.host or host
                 port = int(uri.port or port)
-                cluster = uri.getquerydict().get("n", [])
+                for n in uri.getquerydict().get("n", []):
+                    nodes.append({
+                        "host": n.partition(':')[0],
+                        "port": int(n.partition(':')[2] or 11300)
+                    })
+                nodes.append({"host": host, "port": port})
         return {
             "tube": tube,
             "node": node,
-            "cluster": cluster,
+            "endpoints": nodes,
             "endpoint": {"host": host, "port": port}
         }
 
@@ -61,17 +67,12 @@ class Router(Base):
     def bootstrap(self, channel=None):
         self.nodes.bootstrap(**self.parse(channel))
 
-    # def update(self, message, channel=None):
-    #     message = message["body"]
-    #     if message["revision"] > self.nodes.revision:
-    #         self.nodes.items.update(message["nodes"])
-    #         self.nodes.revision = int(message["revision"])
-
     def add(self, schema=None, method=None, callback=None):
         if callback is not None:
-            self.route[
-                '.'.join((self.spot, schema, method))
-            ] = callback
+            self.route['.'.join((self.spot, schema, method))] = callback
+
+    def timeout(self):
+        sleep(self.waiting)
 
     def receive(self, message, channel=None):
         return self.nodes.send(message)
@@ -81,17 +82,16 @@ class Router(Base):
         channel = self.parse(channel)
         if self.nodes.update(channel["node"], channel["endpoint"]):
             self.nodes.notify()
-            self.log.info(channel)
-        queue = self.nodes[channel["node"]]
-        if queue is not None:
-            queue.watch("router/{version}/{host}/{pid}".format(**self.sender))
-            queue.watch(channel["tube"])
+        mta = self.nodes[channel["node"]]
+        tubes = [mta.tube(default_router), channel["tube"]]
+        if mta is not None:
             while self.execute:
-                self.log.info(self.nodes.revision)
-                self.log.info(self.nodes.items)
-                message = self.nodes.reserve(channel["node"], timeout=self.waiting)
+                message = None
+                if mta.watching(tubes):
+                    job, message = mta.reserve(timeout=self.waiting)
                 if message is not None:
-                    if self.is_context(message, "message"):
+                    if is_context(message):
+                        self.log.info(message)
                         self._callback(message, channel)
                 else:
                     self.timeout()

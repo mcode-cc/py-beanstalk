@@ -1,13 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
-import json
-from time import time
-from hashlib import md5
-from bson import json_util
 
-__version__ = '0.3.5'
+__version__ = '0.4.0'
 
 
 class Base(object):
@@ -23,46 +18,8 @@ class Base(object):
         self.route = {}
         self.sender = {"host": os.uname()[1], "pid": os.getpid(), "version": __version__}
 
-    @staticmethod
-    def is_context(value, context=None):
-        return isinstance(value, dict) and '@context' in value and value['@context'] == context
-
-    def hashing(self, value):
-        result = None
-        try:
-            _dump = json.dumps(
-                value,
-                sort_keys=True,
-                separators=(',', ':'),
-                default=json_util.default
-            )
-        except Exception, e:
-            _e = "Create a hashing fails: %s" % str(e)
-            if self.log is not None:
-                self.log.error(_e)
-            else:
-                print >> sys.stderr, _e
-        else:
-            result = md5(_dump).hexdigest()
-        return result
-
-    def message(self, value, subscribe=None, sender=None, context=None):
-        result = None
-        token = self.hashing({
-            '@context': context or self.context,
-            "body": value
-        })
-        if token is not None:
-            result = {
-                '@context': context or self.context,
-                "body": value,
-                "token": token,
-                "created": int(time()),
-                "sender": sender or self.sender,
-            }
-            if subscribe is not None:
-                result["subscribe"] = subscribe
-        return result
+    def message(self, *args, **kwargs):
+        pass
 
     def add(self, schema=None, method=None, callback=None):
         pass

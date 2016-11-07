@@ -1,6 +1,5 @@
 
 from argparse import ArgumentParser
-from warehouse import Logger
 from router.boom.client import CLI
 
 __version__ = '0.1.0'
@@ -15,8 +14,9 @@ def main():
         help="watch channel"
     )
     options = ap.parse_args()
-    app = CLI(log=Logger('Router'))
-    app.run(channel=app.bootstrap(channel=options.watch))
+    app = CLI()
+    app.bootstrap(channel=options.watch)
+    app.run(channel=options.watch)
 
 
 if __name__ == "__main__":
