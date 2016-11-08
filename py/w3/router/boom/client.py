@@ -18,8 +18,6 @@ class CLI(Router, cmd.Cmd):
         self.prompt = "boom> "
         self.ruler = ''
         self.intro = "Boom shell version: %s" % __version__
-        # self.doc_header = "Доступные команды:"
-        # self.undoc_header = "Недокументированные команды:"
         self.channel = None
         self.node = None
 
@@ -85,7 +83,7 @@ class CLI(Router, cmd.Cmd):
                     "stats": [node],
                     "current": [node]
                 }
-                values = self.nodes[node].queue.stats()
+                values = self.nodes[node].command('stats')
                 for key in sorted(values):
                     keys = replays.get(key, key).split('-')
                     top, header = "top", " ".join(keys)
@@ -116,8 +114,8 @@ class CLI(Router, cmd.Cmd):
             "current-watching": "watching",
             "total-jobs": "jobs"
         }
-        for name in self.nodes[node].queue.tubes():
-            stats = self.nodes[node].queue.stats_tube(name)
+        for name in self.nodes[node].tubes:
+            stats = self.nodes[node].command("stats_tube", name)
             row = [name]
             for key in sorted(stats):
                 if key in columns:

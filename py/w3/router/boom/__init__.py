@@ -4,7 +4,7 @@ import signal
 from uritools import urisplit
 from .. import Base
 from time import sleep
-from messages import Nodes, is_context, default_router
+from messages import Nodes, is_context, DEFAULT_ROUTER
 
 __version__ = '0.4.0'
 
@@ -56,10 +56,9 @@ class Router(Base):
                 method = self.route[_subscribe]
             elif subscribe["spot"] == self.spot and subscribe["schema"] == "boom":
                 method = self._method(subscribe["method"]) or method
-                body = message.get("body", {})
-                if isinstance(body, dict):
-                    args = body.get("args", [])
-                    kwargs = body.get("kwargs", {})
+                if isinstance(message.body, dict):
+                    args = message.body.get("args", [])
+                    kwargs = message.body.get("kwargs", {})
         elif subscribe in self.route:
             method = self.route[subscribe]
         return method(*args, **kwargs)
@@ -72,7 +71,7 @@ class Router(Base):
             self.route['.'.join((self.spot, schema, method))] = callback
 
     def timeout(self):
-        sleep(self.waiting)
+        pass
 
     def receive(self, message, channel=None):
         return self.nodes.send(message)
@@ -83,18 +82,18 @@ class Router(Base):
         if self.nodes.update(channel["node"], channel["endpoint"]):
             self.nodes.notify()
         mta = self.nodes[channel["node"]]
-        tubes = [mta.tube(default_router), channel["tube"]]
+        tubes = [mta.tube(DEFAULT_ROUTER), channel["tube"]]
         if mta is not None:
             while self.execute:
-                message = None
                 if mta.watching(tubes):
-                    job, message = mta.reserve(timeout=self.waiting)
-                if message is not None:
-                    if is_context(message):
-                        self.log.info(message)
-                        self._callback(message, channel)
+                    message = mta.reserve(timeout=self.waiting)
+                    if message is not None:
+                        self.log.info(message.body)
+                        self._callback(message.body, channel)
+                    else:
+                        self.timeout()
                 else:
-                    self.timeout()
+                    sleep(self.waiting)
         self.log.info("exit")
 
     def _signal_handler(self, signum, frame):

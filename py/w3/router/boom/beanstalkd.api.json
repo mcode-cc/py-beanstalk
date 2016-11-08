@@ -1,0 +1,140 @@
+{
+    "delete": {
+        "group": "message",
+        "name": "delete",
+		"description": "Delete a job, by job id.",
+        "meta":  ["delete %d\r\n", [["DELETED"], ["NOT_FOUND"]], null]
+    },
+    "release": {
+        "group": "message",
+        "name": "release",
+		"description": "Release a reserved job back into the ready queue.",
+        "meta":  ["release %d %d %d\r\n", [["RELEASED", "BURIED"], ["NOT_FOUND"]], null]
+    },
+    "bury": {
+        "group": "message",
+        "name": "bury",
+		"description": "Bury a job, by job id.",
+        "meta":  ["bury %d %d\r\n", [["BURIED"], ["NOT_FOUND"]], null]
+    },
+    "touch": {
+        "group": "message",
+        "name": "touch",
+		"description": "Touch a job, by job id, requesting more time to work on a reserved job before it expires.",
+        "meta":  ["touch %d\r\n", [["TOUCHED"], ["NOT_FOUND"]], null]
+    },
+    "stats_job": {
+        "group": "message",
+        "name": "stats",
+		"description": "Return a dict of stats about a job, by job id.",
+        "meta":  ["stats-job %d\r\n", [["OK"], ["NOT_FOUND"]], "yaml"]
+    },
+    "kick_job": {
+        "group": "message",
+        "name": "kick",
+		"description": "Kick a specific job into the ready queue.",
+        "meta":  ["kick-job %d\r\n", [["KICKED"], ["NOT_FOUND"]], null]
+    },
+    "put": {
+        "group": "message",
+        "name": "put",
+		"description": "Put a job into the current tube. Returns job id.",
+        "meta":  ["put %d %d %d %d\r\n%s\r\n", [["INSERTED"], ["JOB_TOO_BIG","BURIED","DRAINING"]], "int"]
+    },
+    "reserve_with_timeout": {
+        "group": "message",
+        "name": "reserve",
+		"description": "Reserve a job from one of the watched tubes, with optional timeout in seconds. Returns a Job object, or None if the request times out.",
+        "meta":  ["reserve-with-timeout %d\r\n", [["RESERVED"], ["DEADLINE_SOON", "TIMED_OUT"]], "message"]
+    },
+    "reserve": {
+        "group": "message",
+        "name": "reserve",
+		"description": "Reserve a job from one of the watched tubes, with optional timeout in seconds. Returns a Job object, or None if the request times out.",
+        "meta":  ["reserve\r\n", [["RESERVED"], ["DEADLINE_SOON", "TIMED_OUT"]], "message"]
+    },
+    "peek": {
+        "group": "peek",
+        "name": "peek",
+		"description": "Peek at a job. Returns a Job, or None.",
+		"meta":   ["peek %d\r\n", [[], []], "peek"]
+    },
+    "peek_ready": {
+        "group": "peek",
+        "name": "ready",
+		"description": "Peek at next ready job. Returns a Job, or None.",
+		"meta":   ["peek-ready\r\n", [[], []], "peek"]
+    },
+    "peek_delayed": {
+        "group": "peek",
+        "name": "delayed",
+		"description": "Peek at next delayed job. Returns a Job, or None.",
+		"meta":   ["peek-delayed\r\n", [[], []], "peek"]
+    },
+    "peek_buried": {
+        "group": "peek",
+        "name": "buried",
+		"description": "Peek at next buried job. Returns a Job, or None.",
+		"meta":   ["peek-buried\r\n", [[], []], "peek"]
+    },
+    "list_tubes": {
+        "group": "tube",
+        "name": "tubes",
+		"description": "Return a list of all existing tubes.",
+		"meta":   ["list-tubes\r\n", [["OK"], []], "yaml"]
+    },
+    "using": {
+        "group": "tube",
+        "name": "using",
+		"description": "Return the tube currently being used.",
+		"meta":   ["list-tube-used\r\n", [["USING"], []], "value"]
+    },
+    "use": {
+        "group": "tube",
+        "name": "use",
+		"description": "Use a given tube.",
+		"meta":   ["use %s\r\n", [["USING"], []], "value"]
+    },
+    "watching": {
+        "group": "tube",
+        "name": "watching",
+		"description": "Return a list of all tubes being watched.",
+		"meta":   ["list-tubes-watched\r\n", [["OK"], []], "yaml"]
+    },
+    "watch": {
+        "group": "tube",
+        "name": "watch",
+		"description": "Watch a given tube.",
+		"meta":  ["watch %s\r\n", [["WATCHING"], []], "int"]
+    },
+    "ignore": {
+        "group": "tube",
+        "name": "ignore",
+		"description": "Stop watching a given tube.",
+        "meta":  ["ignore %s\r\n", [["WATCHING"], ["NOT_IGNORED"]], "int"]
+    },
+    "stats_tube": {
+        "group": "tube",
+        "name": "stats",
+		"description": "Return a dict of stats about a given tube.",
+		"meta":   ["stats-tube %s\r\n", [["OK"], ["NOT_FOUND"]], "yaml"]
+    },
+    "pause_tube": {
+        "group": "tube",
+        "name": "pause",
+		"description": "Pause a tube for a given delay time, in seconds.",
+        "meta": ["pause-tube %s %d\r\n", [["PAUSED"], ["NOT_FOUND"]], null]
+    },
+    "stats": {
+        "group": "queue",
+        "name": "stats",
+		"description": "Return a dict of beanstalkd statistics.",
+		"meta":   ["stats\r\n", [["OK"], []], "yaml"]
+    },
+    "kick": {
+        "group": "queue",
+        "name": "kick",
+		"description": "Kick at most bound jobs into the ready queue.",
+		"meta":  ["kick %d\r\n", [["KICKED"], []], "int"]
+    }
+}
