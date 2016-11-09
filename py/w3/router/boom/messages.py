@@ -3,13 +3,11 @@
 import sys
 import os
 import socket
-from time import time, sleep
+from time import time
 import json
 from bson import json_util
 from hashlib import md5
 from warehouse import Logger
-import beanstalkc
-from random import randint
 
 # Set default encoding to 'UTF-8' instead of 'ascii'
 reload(sys)
@@ -256,16 +254,13 @@ class MTA(Connection):
         return result
 
     def put(self, message, tube="receive", priority=DEFAULT_PRIORITY, delay=0, ttr=DEFAULT_TTR):
-        result = None
-        try:
-            body = json.dumps(message, default=json_util.default)
-        except Exception, e:
-            self._error("json dump a message fails: %s" % str(e))
-        else:
-            self.tube.used(tube)
-            result = self.queue.put(priority, delay, ttr, len(body), body)
-            self.tube.restore(tube)
-        return result
+        if not isinstance(message, Message):
+            message = Message(self.queue, message, reserved=False)
+        message.ttr = ttr
+        message.delay = delay
+        message.priority = priority
+        message.send(tube)
+        return message
 
     def reserve(self, timeout=None, drop=True):
         message = None

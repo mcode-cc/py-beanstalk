@@ -85,6 +85,7 @@ class Router(Base):
         tubes = [mta.tube(DEFAULT_ROUTER), channel["tube"]]
         if mta is not None:
             while self.execute:
+                print self.nodes.items
                 if mta.tube.watching(tubes):
                     message = mta.reserve(timeout=self.waiting)
                     if message is not None:
