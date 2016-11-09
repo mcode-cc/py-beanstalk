@@ -7,8 +7,13 @@ from time import time, sleep
 import json
 from bson import json_util
 from hashlib import md5
+from warehouse import Logger
 import beanstalkc
 from random import randint
+
+# Set default encoding to 'UTF-8' instead of 'ascii'
+reload(sys)
+sys.setdefaultencoding("UTF8")
 
 __version__ = '0.4.0'
 
@@ -28,6 +33,23 @@ class DeadlineSoon(BeanstalkcException): pass
 class SocketError(BeanstalkcException): pass
 
 
+def catch(default=None, message="%s"):
+    def decorator(method):
+        def wrapped(*args, **kwargs):
+            result = default
+            try:
+                result = method(*args, **kwargs)
+            except Exception, e:
+                _log, _message = getattr(args[0], "log", None), message % str(e)
+                if _log is not None:
+                    _log.error(_message)
+                else:
+                    print >> sys.stderr, _message
+            return result
+        return wrapped
+    return decorator
+
+
 class CommandsWrap(object):
     def __init__(self, own=None):
         self.own = own
@@ -42,6 +64,7 @@ class CommandsWrap(object):
 class Commands(object):
     def __init__(self, connection=None):
         self.connection = connection
+        self.log = connection.log
         self._yaml = __import__('yaml').load
         with open(os.path.dirname(os.path.realpath(__file__)) + '/beanstalkd.api.json') as _file:
             self.api = json.load(_file)
@@ -149,39 +172,88 @@ class Connection(object):
             print >> sys.stderr, value
 
 
+class Tubes(object):
+    def __init__(self, queue):
+        self._queue = queue
+        self.log = queue.log
+        self._used = None
+
+    @property
+    def list(self):
+        result = []
+        try:
+            result = self._queue.list_tubes()
+        except Exception, e:
+            self._error("Get a list of routers failed: %s" % str(e))
+        return result
+
+    @catch(message="Get a using of tube failed: %s")
+    def using(self):
+        return self._queue.using()
+
+    def use(self, name):
+        pass
+
+    def used(self, name):
+        self._used = self.using()
+        if name != self._used:
+            self._queue.use(name)
+
+    def restore(self, name):
+        if self._used is not None and self._used != name:
+            self._queue.use(self._used)
+            self._used = None
+
+    @catch([], message="Get a using of tube failed: %s")
+    def watched(self):
+        return self._queue.watching()
+
+    @catch(False, message="Watch tube fails: %s")
+    def watch(self, name="receive"):
+        return self._queue('watch', name) > 0
+
+    def watching(self, tubes=None):
+        result = True
+        if isinstance(tubes, (list, tuple)):
+            must = set(tubes) - set(self.watched())
+            for tube in must:
+                result = self.watch(tube) and result
+        return result
+
+    @catch(message="Method ignore failed: %s")
+    def ignore(self, name):
+        try:
+            return int(self._queue.ignore(name))
+        except CommandFailed:
+            return 1
+
+    def _error(self, value):
+        if self.log is not None:
+            self.log.error(value)
+        else:
+            print >> sys.stderr, value
+
+    def __call__(self, name):
+        return "{name}/{version}/{host}/{pid}".format(name=name, **self._queue.connection.sender)
+
+
 class MTA(Connection):
 
     def __init__(self, log=None, host=DEFAULT_HOST, port=None, timeout=None):
         super(MTA, self).__init__(log, host, port, timeout)
         self.sender = {"host": os.uname()[1], "pid": os.getpid(), "version": __version__}
+        self.tube = Tubes(self.queue)
 
     # -- public interface --
 
     @property
     def routers(self):
         result = []
-        try:
-            tubes = self.queue.list_tubes()
-        except Exception, e:
-            self._error("Get a list of routers failed: %s" % str(e))
-        else:
-            for tube in tubes:
-                if tube.split('/')[0] == DEFAULT_ROUTER:
-                    result.append(tube)
+        tubes = self.tube.list
+        for tube in tubes:
+            if tube.split('/')[0] == DEFAULT_ROUTER:
+                result.append(tube)
         return result
-
-    @property
-    def tubes(self):
-        try:
-            result = self.queue.list_tubes()
-            print type(result)
-        except Exception, e:
-            self._error("Get a list of tubes failed: %s" % str(e))
-            result = []
-        return result
-
-    def tube(self, name):
-        return "{name}/{version}/{host}/{pid}".format(name=name, **self.sender)
 
     def put(self, message, tube="receive", priority=DEFAULT_PRIORITY, delay=0, ttr=DEFAULT_TTR):
         result = None
@@ -190,39 +262,10 @@ class MTA(Connection):
         except Exception, e:
             self._error("json dump a message fails: %s" % str(e))
         else:
-            self.queue.use(tube)
+            self.tube.used(tube)
             result = self.queue.put(priority, delay, ttr, len(body), body)
-            self.queue.use("default")
+            self.tube.restore(tube)
         return result
-
-    def watch(self, name="receive"):
-        result = False
-        try:
-            result = self.queue('watch', name) > 0
-        except Exception, e:
-            self._error("Watch tube fails: %s" % str(e))
-        return result
-
-    def watching(self, tubes=None):
-        result = True
-        if isinstance(tubes, (list, tuple)):
-            try:
-                must = set(tubes) - set(self.queue.watching())
-                for tube in must:
-                    result = self.watch(tube) and result
-            except Exception, e:
-                self._error("Watching tube fails: %s" % str(e))
-                result = False
-        return result
-
-    def watched(self):
-        return self.queue.watching()
-
-    def ignore(self, name):
-        try:
-            return int(self.queue.ignore(name))
-        except CommandFailed:
-            return 1
 
     def reserve(self, timeout=None, drop=True):
         message = None
@@ -244,54 +287,46 @@ class MTA(Connection):
         return message
 
     def message(self, value, subscribe=None, sender=None, context=None):
-        result = None
-        token = hashing({
-            '@context': context or DEFAULT_CONTEXT,
-            "body": value
-        })
-        if token is not None:
-            result = {
-                '@context': context or DEFAULT_CONTEXT,
-                "body": value,
-                "token": token,
-                "created": int(time()),
-                "sender": sender or self.sender,
-            }
-            if subscribe is not None:
-                result["subscribe"] = subscribe
+        result = Message(self.queue, value, reserved=False)
+        result.subscribe = subscribe
+        result.context = context
+        result.sender = sender or self.sender
         return result
 
 
 class Message(object):
     def __init__(self, queue, body, uid=None, reserved=True):
         self._queue = queue
+        self.log = queue.log
         self._id = uid
         self._context = DEFAULT_CONTEXT
         self.priority = None
         self.body = None
+        self.reserved = reserved
+        self.created = int(time())
+        self.sender = None
+        self.subscribe = None
+        self.errors = []
+        self.delay = 0
+        self.ttr = DEFAULT_TTR
+        self.indent = None
         if isinstance(body, basestring):
             try:
                 body = json.loads(str(body).encode('utf-8'))
             except:
                 pass
         if is_context(body, context=self._context):
-            self.load(body)
+            self._load(body)
         else:
-            self.init(body)
+            self._init(body)
 
-    def load(self, content):
-        keys = ["body", "token", "created", "sender", "subscribe", "errors"]
-        self.__dict__.update(dict(zip(keys, [content.get(k) for k in keys])))
+    @property
+    def context(self):
+        return self._context or DEFAULT_CONTEXT
 
-    def init(self, content):
-        self.__dict__.update({
-            "body": content,
-            "token": None,
-            "created": int(time()),
-            "sender": self._queue.connection.sender,
-            "subscribe": None,
-            "errors": None
-        })
+    @context.setter
+    def context(self, value):
+        self._context = value or DEFAULT_CONTEXT
 
     @property
     def _token(self):
@@ -311,12 +346,25 @@ class Message(object):
                 self.priority = stats['pri']
         return self.priority
 
+    def _load(self, content):
+        keys = ["body", "token", "created", "sender", "subscribe", "errors"]
+        self.__dict__.update(dict(zip(keys, [content.get(k) for k in keys])))
+
+    def _init(self, content):
+        self.__dict__.update({
+            "body": content,
+            "token": None,
+            "created": int(time()),
+            "sender": self._queue.connection.sender
+        })
+
     # -- public interface --
 
     def delete(self):
         """Delete a message, by message id."""
         if self._id is not None:
             self._queue.delete(self._id)
+            self._id = None
         self.reserved = False
 
     def release(self, delay=0):
@@ -339,15 +387,54 @@ class Message(object):
     def touch(self):
         """Touch this reserved message, requesting more time to work on it before
         it expires."""
-        if self.reserved:
+        if self.reserved and self._id is not None:
             self._queue.touch(self._id)
 
     def stats(self):
         """Return a dict of stats about this message."""
         return None if self._id is None else self._queue.stats_job(self._id)
 
+    def as_dict(self):
+        result = {
+            '@context': self._context,
+            "body": self.body,
+            "token": self._token,
+            "created": self.created,
+            "sender": self.sender,
+        }
+        if self.subscribe is not None:
+            result["subscribe"] = self.subscribe
+        return result
+
     def __str__(self):
-        pass
+        try:
+            result = json.dumps(
+                self.as_dict(),
+                default=json_util.default,
+                indent=self.indent,
+                sort_keys=True,
+                ensure_ascii=False
+            )
+        except Exception, e:
+            result = "json dump a message fails: %s" % str(e)
+        return result
+
+    def send(self, tube="receive"):
+        try:
+            message = json.dumps(self.as_dict(), default=json_util.default)
+        except Exception, e:
+            self.errors.append("json dump a message fails: %s" % str(e))
+        else:
+            current = self._queue.using()
+            if current != tube:
+                self._queue.use(tube)
+            self._id = self._queue.put(
+                self._priority, self.delay, self.ttr, len(message), message
+            )
+            if current != tube:
+                self._queue.use(current)
+            self._queue.use("default")
+        return self._id
 
 
 class Nodes(object):
@@ -389,9 +476,8 @@ class Nodes(object):
         for endpoint in endpoints:
             mta = MTA(self.log, **endpoint)
             tube = mta.tube("bootstrap")
-            if mta.watch(tube):
-                m = mta.put(
-                    mta.message(
+            if mta.tube.watch(tube):
+                m = mta.message(
                         {"kwargs": {"tube": tube, "endpoint": endpoint}},
                         subscribe={
                             "spot": self.spot,
@@ -399,23 +485,22 @@ class Nodes(object):
                             "method": "nodes.reply"
                         }
                     )
-                )
+                m.send()
                 message = mta.reserve(timeout=self.timeout)
                 if message is not None:
                     print message.body
                     self.items.update(message.body)
-                    mta.ignore(tube)
+                    mta.tube.ignore(tube)
                     break
 
     def reply(self, tube=None, endpoint=None):
         mta = MTA(self.log, **endpoint)
-        mta.put(mta.message(self.items), tube=tube)
+        mta.message(self.items).send(tube)
 
     def notify(self):
         for name in self.items.keys():
             mta = self._get(name)
             for tube in mta.routers:
-                mta.put(
                     mta.message(
                         {"args": [self.items]},
                         subscribe={
@@ -423,9 +508,7 @@ class Nodes(object):
                             "schema": "boom",
                             "method": "nodes.items.update"
                         }
-                    ),
-                    tube=tube
-                )
+                    ).send(tube)
 
     def update(self, name, endpoint):
         _h = hashing(self.items)
@@ -473,8 +556,22 @@ def hashing(value):
 
 
 def main():
-    app = Connection(host="127.0.0.1", port=11301)
-    print app.queue.watching()
+    app = MTA(host="127.0.0.1", port=11301, log=Logger("Test"))
+    print app.tube.watched()
+    # app.watching(["temp"])
+    # print app.watched()
+    # print app.queue.using()
+    # msg = Message(app.queue, {"test": "Тут какой то текст!"})
+    # print msg._queue
+    # msg.indent = 4
+    # print str(msg)
+    # print msg.send("temp")
+    # res = app.reserve(0, False)
+    # print res._queue
+    # print res._id
+    # res.indent = 4
+    # print str(res)
+    # res.delete()
 
 if __name__ == "__main__":
     main()
