@@ -7,7 +7,7 @@ from time import sleep
 from messages import MTA, Bootstrap, Endpoints, DEFAULT_ROUTER
 from wrappers import CallbackWrap, is_context, DEFAULT_SCHEMA
 
-__version__ = '0.4.1'
+__version__ = '0.5.1'
 
 
 class Router(CallbackWrap):
@@ -36,12 +36,10 @@ class Router(CallbackWrap):
         }
 
     def bootstrap(self, channel=None):
-        print "************* start bootstrap: ", channel
-        bs = Bootstrap(self.endpoints, self.spot, self.log)
-        bs.run(**self.parse(channel))
+        Bootstrap(self.endpoints, self.spot, self.log).run(**self.parse(channel))
 
     def timeout(self):
-        pass
+        print self.endpoints._items.keys()
 
     def run(self, channel=None):
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -51,9 +49,7 @@ class Router(CallbackWrap):
         if mta is not None:
             self.endpoints.notify()
             while self.execute:
-                print self.endpoints._items.keys()
                 if mta.tube.watching(tubes):
-                    print mta.tube.watched()
                     message = mta.reserve(timeout=self.waiting)
                     if message is not None:
                         self._callback(message, channel)

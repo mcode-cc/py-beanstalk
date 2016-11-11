@@ -14,7 +14,7 @@ from wrappers import catch, is_context, CommandsWrap, CallbackWrap, DEFAULT_SCHE
 reload(sys)
 sys.setdefaultencoding("UTF8")
 
-__version__ = '0.4.1'
+__version__ = '0.5.1'
 
 DEFAULT_HOST = '127.0.0.1'
 DEFAULT_PORT = 11300
@@ -433,7 +433,7 @@ class Bootstrap(CallbackWrap):
                     subscribe={"spot": self.spot, "schema": DEFAULT_SCHEMA, "method": "endpoints.bootstrap"}
                 )
                 request.priority = 90  # Приоритет 90 - 99
-                print "************* send request: ", str(request)
+                # print "************* send request: ", str(request)
                 request.send(router)
                 message = mta.reserve(timeout=self.timeout)
                 if message is not None:
@@ -448,7 +448,7 @@ class Bootstrap(CallbackWrap):
         Начальная загрузка списка узлов кластера
         :param endpoints: начальный список доступных узлов в формате ["ipv4:port", "ipv4:port" ... "ipv4:port"]
         """
-        print "************* run bootstrap: ", endpoints
+        # print "************* run bootstrap: ", endpoints
         for endpoint in endpoints:
             name, host, port = self.endpoints.endpoint(endpoint)
             if name not in self.endpoints:
@@ -503,7 +503,7 @@ class Endpoints(CallbackWrap):
                     "method": "run"
                 }
             )
-            print "************* call bootstrap: ", str(message)
+            # print "************* call bootstrap: ", str(message)
             message.send(tube)
 
     def notify(self):
@@ -515,11 +515,11 @@ class Endpoints(CallbackWrap):
                     subscribe={"spot": self.spot, "schema": DEFAULT_SCHEMA, "method": "endpoints.update"}
                 )
                 _notify.priority = 91
-                print "************* send notify: ", tube
+                # print "************* send notify: ", tube
                 _notify.send(tube)
 
     def update(self, endpoints):
-        print "************* received notify: ", endpoints
+        # print "************* received notify: ", endpoints
         for endpoint in endpoints:
             name, host, port = self.endpoint(endpoint)
             if name not in self._items:
@@ -565,12 +565,3 @@ def hashing(value):
     else:
         result = md5(_dump).hexdigest()
     return result
-
-
-def main():
-    app = MTA(host="127.0.0.1", port=11301, log=Logger("Test"))
-    print app.tube.watched()
-
-
-if __name__ == "__main__":
-    main()
