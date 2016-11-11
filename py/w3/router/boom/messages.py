@@ -8,18 +8,18 @@ import json
 from bson import json_util
 from hashlib import md5
 from warehouse import Logger
+from wrappers import catch, is_context, CommandsWrap, CallbackWrap, DEFAULT_SCHEMA, DEFAULT_CONTEXT
 
 # Set default encoding to 'UTF-8' instead of 'ascii'
 reload(sys)
 sys.setdefaultencoding("UTF8")
 
-__version__ = '0.4.0'
+__version__ = '0.4.1'
 
 DEFAULT_HOST = '127.0.0.1'
 DEFAULT_PORT = 11300
 DEFAULT_ROUTER = 'router'
 DEFAULT_TIMEOUT = 5
-DEFAULT_CONTEXT = 'message'
 DEFAULT_PRIORITY = 2 ** 31
 DEFAULT_TTR = 120
 
@@ -29,34 +29,6 @@ class UnexpectedResponse(BeanstalkcException): pass
 class CommandFailed(BeanstalkcException): pass
 class DeadlineSoon(BeanstalkcException): pass
 class SocketError(BeanstalkcException): pass
-
-
-def catch(default=None, message="%s"):
-    def decorator(method):
-        def wrapped(*args, **kwargs):
-            result = default
-            try:
-                result = method(*args, **kwargs)
-            except Exception, e:
-                _log, _message = getattr(args[0], "log", None), message % str(e)
-                if _log is not None:
-                    _log.error(_message)
-                else:
-                    print >> sys.stderr, _message
-            return result
-        return wrapped
-    return decorator
-
-
-class CommandsWrap(object):
-    def __init__(self, own=None):
-        self.own = own
-        self.name = None
-
-    def __call__(self, *args):
-        if self.name is not None:
-            name, self.name = self.name, None
-            return self.own(name, *args)
 
 
 class Commands(object):
@@ -182,7 +154,7 @@ class Tubes(object):
         try:
             result = self._queue.list_tubes()
         except Exception, e:
-            self._error("Get a list of routers failed: %s" % str(e))
+            self._error("Get a list of tubes failed: %s" % str(e))
         return result
 
     @catch(message="Get a using of tube failed: %s")
@@ -231,15 +203,22 @@ class Tubes(object):
         else:
             print >> sys.stderr, value
 
+    @staticmethod
+    def parse(name):
+        parts = name.split('/', 4)
+        parts += [None] * (4 - len(parts))
+        result = dict(zip(["name", "version", "host", "pid", "time"],  parts))
+        return result
+
     def __call__(self, name):
-        return "{name}/{version}/{host}/{pid}".format(name=name, **self._queue.connection.sender)
+        return "{name}/{version}/{host}/{pid}/{time}".format(name=name, **self._queue.connection.sender)
 
 
 class MTA(Connection):
 
     def __init__(self, log=None, host=DEFAULT_HOST, port=None, timeout=None):
         super(MTA, self).__init__(log, host, port, timeout)
-        self.sender = {"host": os.uname()[1], "pid": os.getpid(), "version": __version__}
+        self.sender = {"host": os.uname()[1], "pid": os.getpid(), "time": time(), "version": __version__}
         self.tube = Tubes(self.queue)
 
     # -- public interface --
@@ -249,7 +228,8 @@ class MTA(Connection):
         result = []
         tubes = self.tube.list
         for tube in tubes:
-            if tube.split('/')[0] == DEFAULT_ROUTER:
+            _tube = self.tube.parse(tube)
+            if _tube["name"] == DEFAULT_ROUTER and is_version(_tube["version"]):
                 result.append(tube)
         return result
 
@@ -280,6 +260,11 @@ class MTA(Connection):
             if drop:
                 message.delete()
         return message
+
+    @catch(message="Delete a job failed: %s")
+    def delete(self, value):
+        """Delete a job, by job id."""
+        self.queue.delete(value)
 
     def message(self, value, subscribe=None, sender=None, context=None):
         result = Message(self.queue, value, reserved=False)
@@ -432,86 +417,113 @@ class Message(object):
         return self._id
 
 
-class Nodes(object):
-    def __init__(self, spot=None, log=None, timeout=None):
-        self.spot = spot
-        self.log = log
-        self.timeout = int(timeout or DEFAULT_TIMEOUT)
-        self._items = {}
-        self.items = {}
+class Bootstrap(CallbackWrap):
+    def __init__(self, endpoints=None, spot=None, log=None, timeout=None):
+        super(Bootstrap, self).__init__(spot, log)
+        self.endpoints = endpoints or Endpoints(spot, log, timeout)
+        self.timeout = timeout
 
-    def _error(self, value):
-        if self.log is not None:
-            self.log.error(value)
+    def _request(self, name, host, port):
+        mta = MTA(self.log, host, port)
+        for router in mta.routers:
+            tube = mta.tube(md5(router).hexdigest())
+            if mta.tube.watch(tube):
+                request = mta.message(
+                    {"@context": "callback", "kwargs": {"tube": tube, "endpoint": name}},
+                    subscribe={"spot": self.spot, "schema": DEFAULT_SCHEMA, "method": "endpoints.bootstrap"}
+                )
+                request.priority = 90  # Приоритет 90 - 99
+                print "************* send request: ", str(request)
+                request.send(router)
+                message = mta.reserve(timeout=self.timeout)
+                if message is not None:
+                    self.endpoints[name] = mta
+                    self._callback(message, name)
+                else:
+                    request.delete()
+                mta.tube.ignore(tube)
+
+    def run(self, endpoints=None, **kwargs):
+        """
+        Начальная загрузка списка узлов кластера
+        :param endpoints: начальный список доступных узлов в формате ["ipv4:port", "ipv4:port" ... "ipv4:port"]
+        """
+        print "************* run bootstrap: ", endpoints
+        for endpoint in endpoints:
+            name, host, port = self.endpoints.endpoint(endpoint)
+            if name not in self.endpoints:
+                self._request(name, host, port)
+
+
+class Endpoints(CallbackWrap):
+    def __init__(self, spot=None, log=None, timeout=None):
+        super(Endpoints, self).__init__(spot, log)
+        self.timeout = int(timeout or DEFAULT_TIMEOUT)
+        self.related = {}
+        self._items = {}
+
+    @staticmethod
+    def endpoint(name):
+        try:
+            host = socket.inet_ntoa(socket.inet_aton(name.partition(':')[0]))
+            port = int(name.partition(':')[2] or 11300)
+            name = "%s:%d" % (host, port)
+        except:
+            return None, None, None
         else:
-            print >> sys.stderr, value
+            return name, host, port
 
     def _get(self, name):
-        result = None
-        if name in self._items:
-            result = self._items[name]
-        elif name in self.items:
-            result = self._items[name] = MTA(self.log, **self.items[name]["endpoint"])
-        return result
+        name, host, port = self.endpoint(name)
+        if name is not None:
+            if name not in self._items:
+                self._items[name] = MTA(self.log, host=host, port=port)
+            return self._items[name]
+        return None
 
     def __getitem__(self, name):
         return self._get(name)
 
     def __setitem__(self, key, value):
-        self.items[key] = value
+        if key not in self._items and isinstance(value, MTA):
+            self._items[key] = value
 
     def __contains__(self, key):
-        return key in self.items
+        return key in self._items
 
-    def bootstrap(self, endpoints, **kwargs):
-        """
-        Начальная загрузка списка узлов кластера
-        :param endpoints: список доступных узлов
-        """
-        for endpoint in endpoints:
-            mta = MTA(self.log, **endpoint)
-            tube = mta.tube("bootstrap")
-            if mta.tube.watch(tube):
-                m = mta.message(
-                        {"kwargs": {"tube": tube, "endpoint": endpoint}},
-                        subscribe={
-                            "spot": self.spot,
-                            "schema": "boom",
-                            "method": "nodes.reply"
-                        }
-                    )
-                m.send()
-                message = mta.reserve(timeout=self.timeout)
-                if message is not None:
-                    print message.body
-                    self.items.update(message.body)
-                    mta.tube.ignore(tube)
-                    break
-
-    def reply(self, tube=None, endpoint=None):
-        mta = MTA(self.log, **endpoint)
-        mta.message(self.items).send(tube)
+    def bootstrap(self, tube=None, endpoint=None):
+        name, host, port = self.endpoint(endpoint)
+        mta = MTA(self.log, host=host, port=port)
+        if tube in mta.tube.list:
+            message = mta.message(
+                {"@context": "callback", "kwargs": {"endpoints": self._items.keys()}},
+                subscribe={
+                    "spot": self.spot,
+                    "schema": DEFAULT_SCHEMA,
+                    "method": "run"
+                }
+            )
+            print "************* call bootstrap: ", str(message)
+            message.send(tube)
 
     def notify(self):
-        for name in self.items.keys():
-            mta = self._get(name)
+        for endpoint in self._items.keys():
+            mta = self._get(endpoint)
             for tube in mta.routers:
-                    mta.message(
-                        {"args": [self.items]},
-                        subscribe={
-                            "spot": self.spot,
-                            "schema": "boom",
-                            "method": "nodes.items.update"
-                        }
-                    ).send(tube)
+                _notify = mta.message(
+                    {"@context": "callback", "kwargs": {"endpoints": self._items.keys()}},
+                    subscribe={"spot": self.spot, "schema": DEFAULT_SCHEMA, "method": "endpoints.update"}
+                )
+                _notify.priority = 91
+                print "************* send notify: ", tube
+                _notify.send(tube)
 
-    def update(self, name, endpoint):
-        _h = hashing(self.items)
-        if name in self.items:
-            self.items[name]["endpoint"] = endpoint
-        else:
-            self.items[name] = {"endpoint": endpoint}
-        return _h != hashing(self.items)
+    def update(self, endpoints):
+        print "************* received notify: ", endpoints
+        for endpoint in endpoints:
+            name, host, port = self.endpoint(endpoint)
+            if name not in self._items:
+                self._items[name] = MTA(self.log, host=host, port=port)
 
     def send(self, message):
         print message
@@ -529,9 +541,14 @@ class Nodes(object):
         #         self.put2channel(message, subscribe["channels"][randint(0, len(subscribe["channels"]) - 1)])
 
 
-def is_context(value, context=None):
-    context = context or DEFAULT_CONTEXT
-    return isinstance(value, dict) and '@context' in value and value['@context'] == context
+def is_version(value):
+    if not isinstance(value, (list, tuple)):
+        try:
+            value = map(int, value.split('.'))
+        except:
+            return False
+    current = map(int, __version__.split('.'))
+    return current[0] == value[0] and current[1] >= value[1]
 
 
 def hashing(value):
@@ -553,20 +570,7 @@ def hashing(value):
 def main():
     app = MTA(host="127.0.0.1", port=11301, log=Logger("Test"))
     print app.tube.watched()
-    # app.watching(["temp"])
-    # print app.watched()
-    # print app.queue.using()
-    # msg = Message(app.queue, {"test": "Тут какой то текст!"})
-    # print msg._queue
-    # msg.indent = 4
-    # print str(msg)
-    # print msg.send("temp")
-    # res = app.reserve(0, False)
-    # print res._queue
-    # print res._id
-    # res.indent = 4
-    # print str(res)
-    # res.delete()
+
 
 if __name__ == "__main__":
     main()
