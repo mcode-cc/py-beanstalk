@@ -23,7 +23,7 @@ class CLI(Router, cmd.Cmd):
 
     def do_use(self, args):
         """Switched to node <name>"""
-        if args in self.nodes:
+        if args in self.endpoints:
             self.node = args
             print "Switched to node %s" % args
             self.prompt = "%s> " % args
@@ -65,14 +65,14 @@ class CLI(Router, cmd.Cmd):
             "cmd-stats-tube": "stats-tube",
             "cmd-reserve-with-timeout": "cmd-reserve-(w/t)"
         }
-        for node in sorted(self.nodes.items):
-            current = len(self.nodes[node].routers)
+        for node in sorted(self.endpoints.keys()):
+            current = len(self.endpoints[node].routers)
             if current > 0:
                 row = {
                     "top": [
                         node,
-                        self.nodes.items[node]["endpoint"]["host"],
-                        self.nodes.items[node]["endpoint"]["port"],
+                        self.endpoints[node].host,
+                        self.endpoints[node].port,
                         current
                     ],
                     "binlog": [node],
@@ -83,7 +83,7 @@ class CLI(Router, cmd.Cmd):
                     "stats": [node],
                     "current": [node]
                 }
-                values = self.nodes[node].command('stats')
+                values = self.endpoints[node].queue.stats()
                 for key in sorted(values):
                     keys = replays.get(key, key).split('-')
                     top, header = "top", " ".join(keys)
@@ -114,8 +114,8 @@ class CLI(Router, cmd.Cmd):
             "current-watching": "watching",
             "total-jobs": "jobs"
         }
-        for name in self.nodes[node].tubes:
-            stats = self.nodes[node].command("stats_tube", name)
+        for name in self.endpoints[node].tube.list:
+            stats = self.endpoints[node].queue("stats_tube", name)
             row = [name]
             for key in sorted(stats):
                 if key in columns:
@@ -151,7 +151,7 @@ class CLI(Router, cmd.Cmd):
     def do_show(self, args):
         if args == "routers" and self.node is not None:
             table = []
-            for router in self.nodes[self.node].routers:
+            for router in self.endpoints[self.node].routers:
                 table.append(router.split('/'))
             print tabulate(table, headers=["name", "version", "hostname", "pid"])
         elif args == "channel":
@@ -169,7 +169,7 @@ class CLI(Router, cmd.Cmd):
 
     def do_tubes(self, args):
         node = None
-        if args in self.nodes:
+        if args in self.endpoints:
             node = args
         elif self.node is not None:
             node = self.node

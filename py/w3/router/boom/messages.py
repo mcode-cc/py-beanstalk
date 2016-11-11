@@ -491,6 +491,9 @@ class Endpoints(CallbackWrap):
     def __contains__(self, key):
         return key in self._items
 
+    def keys(self):
+        return self._items.keys()
+
     def bootstrap(self, tube=None, endpoint=None):
         name, host, port = self.endpoint(endpoint)
         mta = MTA(self.log, host=host, port=port)
