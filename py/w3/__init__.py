@@ -29,7 +29,7 @@ def boom():
     )
     options = ap.parse_args()
     app = Router(log=Logger('Router'))
-    app.bootstrap(channel=options.watch)
+    app.bootstrap.run(**app.parse(options.watch))
     app.run(channel=options.watch)
 
 if __name__ == "__main__":

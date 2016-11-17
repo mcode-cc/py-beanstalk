@@ -15,6 +15,9 @@ class Router(CallbackWrap):
     def __init__(self, log=None, spot='press.root', waiting=5):
         super(Router, self).__init__(spot=spot, log=log)
         self.endpoints = Endpoints(spot, log, waiting)
+        self.endpoint = None
+        self.tube = None
+        self.bootstrap = Bootstrap(self.endpoints, self.spot, self.log)
         self.waiting = waiting
         self.execute = True
 
@@ -35,21 +38,20 @@ class Router(CallbackWrap):
             "endpoint": "%s:%d" % (host, port)
         }
 
-    def bootstrap(self, channel=None):
-        Bootstrap(self.endpoints, self.spot, self.log).run(**self.parse(channel))
-
     def timeout(self):
         print self.endpoints._items.keys()
 
     def run(self, channel=None):
         signal.signal(signal.SIGINT, self._signal_handler)
         channel = self.parse(channel)
-        mta = self.endpoints[channel["endpoint"]]
-        tubes = [mta.tube(DEFAULT_ROUTER), channel["tube"]]
+        self.endpoint = self.endpoint or channel["endpoint"]
+        self.tube = self.tube or channel["tube"]
+        mta = self.endpoints[self.endpoint]
+        _watching = [mta.tube(DEFAULT_ROUTER), self.tube]
         if mta is not None:
             self.endpoints.notify()
             while self.execute:
-                if mta.tube.watching(tubes):
+                if mta.tube.watching(_watching):
                     message = mta.reserve(timeout=self.waiting)
                     if message is not None:
                         self._callback(message, channel)

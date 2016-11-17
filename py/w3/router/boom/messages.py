@@ -448,10 +448,11 @@ class Bootstrap(CallbackWrap):
         Начальная загрузка списка узлов кластера
         :param endpoints: начальный список доступных узлов в формате ["ipv4:port", "ipv4:port" ... "ipv4:port"]
         """
-        # print "************* run bootstrap: ", endpoints
+        endpoints = endpoints or []
         for endpoint in endpoints:
-            name, host, port = self.endpoints.endpoint(endpoint)
+            name, host, port = split_endpoint(endpoint)
             if name not in self.endpoints:
+                print "************* run bootstrap: ", name, self.endpoints.keys()
                 self._request(name, host, port)
 
 
@@ -462,19 +463,8 @@ class Endpoints(CallbackWrap):
         self.related = {}
         self._items = {}
 
-    @staticmethod
-    def endpoint(name):
-        try:
-            host = socket.inet_ntoa(socket.inet_aton(name.partition(':')[0]))
-            port = int(name.partition(':')[2] or 11300)
-            name = "%s:%d" % (host, port)
-        except:
-            return None, None, None
-        else:
-            return name, host, port
-
     def _get(self, name):
-        name, host, port = self.endpoint(name)
+        name, host, port = split_endpoint(name)
         if name is not None:
             if name not in self._items:
                 self._items[name] = MTA(self.log, host=host, port=port)
@@ -495,7 +485,7 @@ class Endpoints(CallbackWrap):
         return self._items.keys()
 
     def bootstrap(self, tube=None, endpoint=None):
-        name, host, port = self.endpoint(endpoint)
+        name, host, port = split_endpoint(endpoint)
         mta = MTA(self.log, host=host, port=port)
         if tube in mta.tube.list:
             message = mta.message(
@@ -506,7 +496,7 @@ class Endpoints(CallbackWrap):
                     "method": "run"
                 }
             )
-            # print "************* call bootstrap: ", str(message)
+            print "************* send endpoints: ", self._items.keys()
             message.send(tube)
 
     def notify(self):
@@ -518,13 +508,13 @@ class Endpoints(CallbackWrap):
                     subscribe={"spot": self.spot, "schema": DEFAULT_SCHEMA, "method": "endpoints.update"}
                 )
                 _notify.priority = 91
-                # print "************* send notify: ", tube
+                print "************* send notify: ", tube
                 _notify.send(tube)
 
     def update(self, endpoints):
-        # print "************* received notify: ", endpoints
+        print "************* received notify: ", endpoints
         for endpoint in endpoints:
-            name, host, port = self.endpoint(endpoint)
+            name, host, port = split_endpoint(endpoint)
             if name not in self._items:
                 self._items[name] = MTA(self.log, host=host, port=port)
 
@@ -568,3 +558,14 @@ def hashing(value):
     else:
         result = md5(_dump).hexdigest()
     return result
+
+
+def split_endpoint(name):
+    try:
+        host = socket.inet_ntoa(socket.inet_aton(name.partition(':')[0]))
+        port = int(name.partition(':')[2] or 11300)
+        name = "%s:%d" % (host, port)
+    except:
+        return None, None, None
+    else:
+        return name, host, port
