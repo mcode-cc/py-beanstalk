@@ -2,9 +2,9 @@
 
 import signal
 from uritools import urisplit
-from .. import Base
 from time import sleep
-from messages import MTA, Bootstrap, Endpoints, DEFAULT_ROUTER
+from messages import MTA, Bootstrap, Endpoints,\
+    DEFAULT_TIMEOUT, DEFAULT_ROUTER, DEFAULT_TUBE, DEFAULT_HOST, DEFAULT_PORT
 from wrappers import CallbackWrap, is_context, DEFAULT_SCHEMA
 
 __version__ = '0.5.1'
@@ -12,18 +12,19 @@ __version__ = '0.5.1'
 
 class Router(CallbackWrap):
 
-    def __init__(self, log=None, spot='press.root', waiting=5):
+    def __init__(self, log=None, spot='press.root', waiting=DEFAULT_TIMEOUT, role=DEFAULT_ROUTER):
         super(Router, self).__init__(spot=spot, log=log)
         self.endpoints = Endpoints(spot, log, waiting)
         self.endpoint = None
         self.tube = None
+        self.role = role
         self.bootstrap = Bootstrap(self.endpoints, self.spot, self.log)
         self.waiting = waiting
         self.execute = True
 
     @staticmethod
     def parse(value=None):
-        tube, host, port, endpoints = 'receive', '127.0.0.1', 11300, []
+        tube, host, port, endpoints = DEFAULT_TUBE, DEFAULT_HOST, DEFAULT_PORT, []
         if value is not None:
             uri = urisplit(value)
             if uri.scheme is not None and uri.scheme == "boom":
@@ -47,7 +48,7 @@ class Router(CallbackWrap):
         self.endpoint = self.endpoint or channel["endpoint"]
         self.tube = self.tube or channel["tube"]
         mta = self.endpoints[self.endpoint]
-        _watching = [mta.tube(DEFAULT_ROUTER), self.tube]
+        _watching = [mta.tube(self.role), self.tube]
         if mta is not None:
             self.endpoints.notify()
             while self.execute:

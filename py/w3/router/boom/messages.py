@@ -7,7 +7,6 @@ from time import time
 import json
 from bson import json_util
 from hashlib import md5
-from warehouse import Logger
 from wrappers import catch, is_context, CommandsWrap, CallbackWrap, DEFAULT_SCHEMA, DEFAULT_CONTEXT
 
 # Set default encoding to 'UTF-8' instead of 'ascii'
@@ -18,11 +17,11 @@ __version__ = '0.5.1'
 
 DEFAULT_HOST = '127.0.0.1'
 DEFAULT_PORT = 11300
-DEFAULT_ROUTER = 'router'
 DEFAULT_TIMEOUT = 5
 DEFAULT_PRIORITY = 2 ** 31
 DEFAULT_TTR = 120
-
+DEFAULT_ROUTER = 'router'
+DEFAULT_TUBE = 'receive'
 
 class BeanstalkcException(Exception): pass
 class UnexpectedResponse(BeanstalkcException): pass

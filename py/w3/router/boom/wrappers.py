@@ -71,12 +71,11 @@ class CallbackWrap(object):
                 method = self.route[_subscribe]
             elif message.subscribe["spot"] == self.spot:
                 method = self._method(message.subscribe["method"], message.subscribe["schema"]) or method
-                if is_context(message.body, "callback"):
-                    args = message.body.get("args", [])
-                    kwargs = message.body.get("kwargs", {})
         elif message.subscribe in self.route:
             method = self.route[message.subscribe]
-
+        if is_context(message.body, "callback"):
+            args = message.body.get("args", [])
+            kwargs = message.body.get("kwargs", {})
         return self._do(method, *args, **kwargs)
 
     def add(self, schema=None, method=None, callback=None):

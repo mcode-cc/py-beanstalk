@@ -16,7 +16,7 @@ def main():
     )
     options = ap.parse_args()
     app = CLI(log=Logger("CLI"))
-    app.bootstrap(channel=options.watch)
+    app.bootstrap.run(**app.parse(options.watch))
     app.run(channel=options.watch)
 
 

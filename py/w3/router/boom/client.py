@@ -5,7 +5,8 @@ from . import Router
 from tabulate import tabulate
 import json
 from bson import json_util
-from datetime import timedelta
+from datetime import timedelta, datetime
+import time
 
 __version__ = '0.1.0'
 
@@ -32,7 +33,7 @@ class CLI(Router, cmd.Cmd):
 
     def get_stats(self):
         result = {
-            "top": {"headers": ["node",  "host", "port", "routers"], "table": []},
+            "top": {"headers": ["node",  "routers"], "table": []},
             "binlog": {"headers": ["node"], "table": []},
             "cmd": {"headers": ["node"], "table": []},
             "jobs": {"headers": ["node"], "table": []},
@@ -43,7 +44,7 @@ class CLI(Router, cmd.Cmd):
         }
         replays = {
             "max-job-size": "size",
-            "total-connections": "connections",
+            "total-connections": "conn",
             "total-jobs": "jobs-total",
             "job-timeouts": "jobs-timeouts",
             "rusage-stime": "stime",
@@ -67,37 +68,35 @@ class CLI(Router, cmd.Cmd):
         }
         for node in sorted(self.endpoints.keys()):
             current = len(self.endpoints[node].routers)
-            if current > 0:
-                row = {
-                    "top": [
-                        node,
-                        self.endpoints[node].host,
-                        self.endpoints[node].port,
-                        current
-                    ],
-                    "binlog": [node],
-                    "cmd": [node],
-                    "peek": [node],
-                    "jobs": [node],
-                    "list": [node],
-                    "stats": [node],
-                    "current": [node]
-                }
-                values = self.endpoints[node].queue.stats()
-                for key in sorted(values):
-                    keys = replays.get(key, key).split('-')
-                    top, header = "top", " ".join(keys)
-                    if keys[0] in result:
-                        top = keys[0]
-                        header = " ".join(keys[1:])
-                    if header not in result[top]["headers"]:
-                        result[top]["headers"].append(header)
-                    value = values[key]
-                    if key == "uptime":
-                        value = str(timedelta(seconds=int(value)))
-                    row[top].append(value)
-                for k, v in row.items():
-                    result[k]["table"].append(row[k])
+            # if current > 0:
+            row = {
+                "top": [
+                    node,
+                    current
+                ],
+                "binlog": [node],
+                "cmd": [node],
+                "peek": [node],
+                "jobs": [node],
+                "list": [node],
+                "stats": [node],
+                "current": [node]
+            }
+            values = self.endpoints[node].queue.stats()
+            for key in sorted(values):
+                keys = replays.get(key, key).split('-')
+                top, header = "top", " ".join(keys)
+                if keys[0] in result:
+                    top = keys[0]
+                    header = " ".join(keys[1:])
+                if header not in result[top]["headers"]:
+                    result[top]["headers"].append(header)
+                value = values[key]
+                if key == "uptime":
+                    value = str(timedelta(seconds=int(value)))
+                row[top].append(value)
+            for k, v in row.items():
+                result[k]["table"].append(row[k])
         return result
 
     def get_tubes(self, node):
@@ -142,40 +141,40 @@ class CLI(Router, cmd.Cmd):
             nodes stats     - commands statistic
 
         """
-        self.bootstrap(channel=self.channel)
         result = self.get_stats()
         if args not in result:
             args = "top"
         print tabulate(result[args]["table"], headers=result[args]["headers"])
 
-    def do_show(self, args):
-        if args == "routers" and self.node is not None:
+    def do_routers(self, args):
+        node = args or self.node
+        if node is not None:
             table = []
-            for router in self.endpoints[self.node].routers:
-                table.append(router.split('/'))
-            print tabulate(table, headers=["name", "version", "hostname", "pid"])
-        elif args == "channel":
-            print self.channel
+            for router in self.endpoints[node].routers:
+                name, version, hostname, pid, timestamp = router.split('/')
+                table.append([name, version, hostname, pid, datetime.fromtimestamp(float(timestamp))])
+            print tabulate(table, headers=["name", "version", "hostname", "pid", "start time"])
+        else:
+            print "use <endpoint>"
         return False
 
     def do_channel(self, args):
         if args == "":
+            print self.channel
             print self.parse(self.channel)
         else:
             self.channel = args
-            self.bootstrap(channel=self.channel)
+            self.bootstrap.run(**self.parse(self.channel))
             print self.channel
         return False
 
     def do_tubes(self, args):
-        node = None
-        if args in self.endpoints:
-            node = args
-        elif self.node is not None:
-            node = self.node
+        node = args or self.node
         if node is not None:
             result = self.get_tubes(node)
             print tabulate(result["table"], headers=result["headers"])
+        else:
+            print "use <endpoint>"
         return False
 
     @staticmethod
