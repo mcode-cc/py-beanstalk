@@ -3,10 +3,12 @@
 import sys
 import os
 import socket
+import DNS
 from time import time
 import json
 from bson import json_util
 from hashlib import md5
+from random import randint
 from wrappers import catch, is_context, CommandsWrap, CallbackWrap, DEFAULT_SCHEMA, DEFAULT_CONTEXT
 
 # Set default encoding to 'UTF-8' instead of 'ascii'
@@ -22,12 +24,32 @@ DEFAULT_PRIORITY = 2 ** 31
 DEFAULT_TTR = 120
 DEFAULT_ROUTER = 'router'
 DEFAULT_TUBE = 'receive'
+DEFAULT_SPOT = 'press.root'
+DEFAULT_BALANCE = 0
 
-class BeanstalkcException(Exception): pass
-class UnexpectedResponse(BeanstalkcException): pass
-class CommandFailed(BeanstalkcException): pass
-class DeadlineSoon(BeanstalkcException): pass
-class SocketError(BeanstalkcException): pass
+BALANCE_ALL = 0
+BALANCE_LIST = 1
+BALANCE_RND = 2
+
+
+class BeanstalkcException(Exception):
+    pass
+
+
+class UnexpectedResponse(BeanstalkcException):
+    pass
+
+
+class CommandFailed(BeanstalkcException):
+    pass
+
+
+class DeadlineSoon(BeanstalkcException):
+    pass
+
+
+class SocketError(BeanstalkcException):
+    pass
 
 
 class Commands(object):
@@ -533,6 +555,206 @@ class Endpoints(CallbackWrap):
         #         self.put2channel(message, subscribe["channels"][randint(0, len(subscribe["channels"]) - 1)])
 
 
+class Node(object):
+    def __init__(self, name=None, endpoints=None):
+        self.name = name
+        self._priority = 0
+        self._endpoints = {}
+        self.update(endpoints)
+
+    def update(self, other=None):
+        if isinstance(other, dict):
+            self._endpoints.update(other)
+        elif isinstance(other, (list, tuple)):
+            self._endpoints.update(dict(other))
+
+    def add(self, value, priority=None):
+        name, host, port = split_endpoint(value)
+        if name is not None:
+            priority = priority or self._priority
+            self._priority += 1
+            self._endpoints[name] = priority
+
+    def __iter__(self):
+        for endpoint in sorted(self._endpoints, key=self._endpoints.get, reverse=True):
+            yield endpoint
+
+    def __str__(self):
+        return self.name
+
+
+class Nodes(dict):
+    def __setitem__(self, key, value):
+        item = self.get(key)
+        if item is None:
+            super(Nodes, self).__setitem__(key, Node(key, value))
+        else:
+            item.update(value)
+
+
+class Channel(object):
+    def __init__(self, nodes, value):
+        self._tube = DEFAULT_TUBE
+        self._node = None
+        self._nodes = nodes
+        self.name = value
+
+    @property
+    def name(self):
+        return '{tube}@{node}'.format(
+            tube=self._tube, node=self._node
+        )
+
+    @name.setter
+    def name(self, value):
+        if isinstance(value, (list, tuple)):
+            self._tube, self._node = value
+        elif isinstance(value, dict):
+            self._tube = value.get("tube", DEFAULT_TUBE)
+            self._node = value.get("node")
+        elif isinstance(value, basestring):
+            self._tube = str(value).partition('@')[0]
+            self._node = str(value).partition('@')[2]
+
+    @property
+    def tube(self):
+        return self._tube
+
+    @property
+    def node(self):
+        return self._nodes.get(self._node)
+
+    def __str__(self):
+        return self.name
+
+
+class Subscribe(object):
+    def __init__(self, *args, **kwargs):
+        self._spot = DEFAULT_SPOT
+        self._schema = DEFAULT_SCHEMA
+        self._method = None
+        self._nodes = kwargs.pop("nodes")
+        self.balance = kwargs.pop("balance", DEFAULT_BALANCE)
+        if len(args) == 1:
+            self.name = args[0]
+        elif len(args) > 1:
+            self.name = args
+        elif len(kwargs.keys()) > 0:
+            self.name = kwargs
+        self._current = -1
+        self._channels = []
+
+    def add(self, *args, **kwargs):
+        value = None
+        if len(args) == 1:
+            value = args[0]
+        elif len(args) > 1:
+            value = args
+        elif len(kwargs.keys()) > 0:
+            value = kwargs
+        if value is not None:
+            self._channels.append(Channel(self._nodes, value))
+
+    @property
+    def current(self):
+        self._current = self._current + 1 if self._current < len(self._channels) - 1 else 0
+        return self._current
+
+    @property
+    def random(self):
+        return randint(0, len(self._channels) - 1)
+
+    @property
+    def channels(self):
+        if self.balance == BALANCE_LIST:
+            yield self._channels[self.current]
+        elif self.balance == BALANCE_RND:
+            yield self._channels[self.random]
+        else:
+            for channel in self._channels:
+                yield channel
+
+    @property
+    def spot(self):
+        return self._spot
+
+    @property
+    def schema(self):
+        return self._schema
+
+    @property
+    def method(self):
+        return self._method or "get"
+
+    @spot.setter
+    def spot(self, value):
+        if value is not None:
+            if not isinstance(value, (list, tuple)):
+                value = str(value).split('.')
+            if len(value) > 1:
+                result = []
+                test = []
+                for name in value:
+                    test.append(name)
+                    try:
+                        if len(DNS.dnslookup('.'.join(test[::-1]), "NS")) > 0:
+                            result.append(name)
+                        else:
+                            break
+                    except:
+                        break
+                if len(result) > 1:
+                    self._spot = '.'.join(result)
+
+    @property
+    def name(self):
+        return '{spot}.{schema}.{method}'.format(
+            spot=self.spot, schema=self.schema, method=self.method
+        )
+
+    @name.setter
+    def name(self, value):
+        if isinstance(value, (list, tuple)) and len(value) == 3:
+            self.spot, self._schema, self._method = value
+        elif isinstance(value, dict):
+            self.spot = value.get("spot")
+            self._schema = value.get("schema", DEFAULT_SCHEMA)
+            self._method = value.get("method")
+        elif isinstance(value, basestring):
+            value = str(value).split(".", 3)
+            if len(value) > 3:
+                self.spot = value[:2]
+                if self.spot == ".".join(value[:2]):
+                    self._schema = value[2]
+                    self._method = value[3]
+
+    def __str__(self):
+        return self.name
+
+    def __eq__(self, other):
+        if isinstance(other, Subscribe):
+            return self.name == other.name
+        elif isinstance(other, basestring):
+            return self.name == str(other)
+        else:
+            return False
+
+
+class Subscription(dict):
+    def __init__(self, nodes=None, **kwargs):
+        super(Subscription, self).__init__(**kwargs)
+        self._nodes = nodes
+
+    def __setitem__(self, key, value):
+        item = self.get(key)
+        if item is None:
+            subscribe = Subscribe(key, nodes=self._nodes)
+            subscribe.add(value)
+            super(Subscription, self).__setitem__(key, subscribe)
+        else:
+            item.add(value)
+
+
 def is_version(value):
     if not isinstance(value, (list, tuple)):
         try:
@@ -568,3 +790,28 @@ def split_endpoint(name):
         return None, None, None
     else:
         return name, host, port
+
+
+if __name__ == "__main__":
+    n = Nodes()
+    s = Subscription(n)
+    s["net.kpcdn.deskspace.actions.save"] = "inbox@a1.deploy.bb.yellow"
+    s["net.kpcdn.deskspace.actions.save"].add(tube="receive", node="a1.deploy.bb.yellow")
+    s["net.kpcdn.deskspace.actions.save"].add(["receive", "a1.deploy.bb.yellow"])
+
+    n["a1.deploy.bb.yellow"] = [
+        ("127.0.0.1:11302", 99),
+        ("127.0.0.1:11303", -1)
+    ]
+    n["a1.deploy.bb.yellow"] = {"127.0.0.1:11301": 0}
+
+    for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
+        print ch.tube, ch.node, list(ch.node)
+    s["net.kpcdn.deskspace.actions.save"].balance = 2
+
+    # for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
+    #     print ch.tube, ch.node, list(ch.node)
+
+
+    # print str(n["a1.deploy.bb.yellow"]), list(n["a1.deploy.bb.yellow"])
+
