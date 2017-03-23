@@ -4,7 +4,7 @@ from flask import Flask
 from flask import request
 app = Flask(__name__)
 
-HOST = '0.0.0.0'
+HOST = '127.0.0.1'
 PORT = 5000
 TEXT_HTML = 'Webhook server online! Go to <a href="https://bitbucket.com">Bitbucket</a> to configure your repository webhook for <a href="%s/webhook">%s/webhook</a>'
 
@@ -22,7 +22,7 @@ def index():
     return _html(request)
 
 
-@app.route('/webhook', methods=['GET', 'POST'])
+@app.route('/pull/', methods=['GET', 'POST'])
 def tracking():
     if request.method == 'POST':
         data = request.get_json()
