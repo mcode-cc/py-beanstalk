@@ -3,7 +3,7 @@
 import signal
 from uritools import urisplit
 from time import sleep
-from messages import MTA, Bootstrap, Endpoints,\
+from messages import MTA, Bootstrap, Endpoints, Nodes, Subscription,\
     DEFAULT_TIMEOUT, DEFAULT_ROUTER, DEFAULT_TUBE, DEFAULT_HOST, DEFAULT_PORT
 from wrappers import CallbackWrap, is_context, DEFAULT_SCHEMA
 
@@ -19,6 +19,8 @@ class Router(CallbackWrap):
         self.tube = None
         self.role = role
         self.bootstrap = Bootstrap(self.endpoints, self.spot, self.log)
+        self.nodes = Nodes()
+        self.subscription = Subscription(nodes=self.nodes)
         self.waiting = waiting
         self.execute = True
 
@@ -40,7 +42,7 @@ class Router(CallbackWrap):
         }
 
     def timeout(self):
-        print self.endpoints._items.keys()
+        pass
 
     def run(self, channel=None):
         signal.signal(signal.SIGINT, self._signal_handler)

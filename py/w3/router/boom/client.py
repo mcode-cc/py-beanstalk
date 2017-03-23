@@ -7,6 +7,7 @@ import json
 from bson import json_util
 from datetime import timedelta, datetime
 import time
+from argparse import ArgumentParser
 
 __version__ = '0.1.0'
 
@@ -20,12 +21,47 @@ class CLI(Router, cmd.Cmd):
         self.ruler = ''
         self.intro = "Boom shell version: %s" % __version__
         self.channel = None
-        self.node = None
+        self.endpoint = None
+        self.ap = {
+            "nodes": ArgumentParser(
+                'nodes',
+                description='A foo that bars',
+                epilog="And that's how you'd foo a bar",
+                add_help=False
+            )
+        }
+        self.ap["nodes"].exit = self._exit
+        subparsers = self.ap["nodes"].add_subparsers(dest='command')
+        nodes_add = subparsers.add_parser('add')
+        nodes_add.exit = self._exit
+        nodes_add.add_argument("-n", "--name", dest='name', required=True, help="Node name")
+        nodes_add.add_argument("-H", "--host", dest='host', required=True, help="Endpoint host")
+        nodes_add.add_argument("-P", "--port", dest='port', default=11300, required=False, help="Endpoint port")
+        nodes_add.add_argument("-p", "--priority", dest='priority', required=False, help="Endpoint priority")
+        nodes_add.add_argument("-d", "--description", dest='description', required=False, help="Endpoint description")
+        nodes_show = subparsers.add_parser('show')
+        nodes_show.exit = self._exit
+        nodes_show.add_argument("-n", "--name", dest='name', required=False, help="Node name")
+        nodes_del = subparsers.add_parser('del')
+        nodes_del.exit = self._exit
+        nodes_del.add_argument("-n", "--name", dest='name', required=True, help="Node name")
+        nodes_del.add_argument("-H", "--host", dest='host', required=False, help="Endpoint host")
+        nodes_del.add_argument("-P", "--port", dest='port', default=11300, required=False, help="Endpoint port")
+        nodes_save = subparsers.add_parser('save')
+        nodes_save.exit = self._exit
+        nodes_save.add_argument("-f", "--filename", dest='filename', required=True, help="File name for save nodes")
+        nodes_load = subparsers.add_parser('load')
+        nodes_load.exit = self._exit
+        nodes_load.add_argument("-f", "--filename", dest='filename', required=True, help="File name for load nodes")
+
+    def _exit(self, status=0, message=None):
+        print status
+        print message
 
     def do_use(self, args):
         """Switched to node <name>"""
         if args in self.endpoints:
-            self.node = args
+            self.endpoint = args
             print "Switched to node %s" % args
             self.prompt = "%s> " % args
         else:
@@ -124,21 +160,21 @@ class CLI(Router, cmd.Cmd):
             result["table"].append(row)
         return result
 
-    def do_nodes(self, args):
+    def do_endpoints(self, args):
         """
         Beanstalkd accumulates various statistics at the server, tube and job level
 
         Server statistics
-            nodes           - total statistics
-            nodes current   - current statistics
-            nodes jobs      - current jobs statistics
-            nodes binlog    - binlog statistics
+            endpoints           - total statistics
+            endpoints current   - current statistics
+            endpoints jobs      - current jobs statistics
+            endpoints binlog    - binlog statistics
 
         Operation statistics:
-            nodes cmd       - basic commands (w/t with timeout)
-            nodes peek      - did not reserve the job commands
-            nodes list      - (used, tubes, watched)
-            nodes stats     - commands statistic
+            endpoints cmd       - basic commands (w/t with timeout)
+            endpoints peek      - did not reserve the job commands
+            endpoints list      - (used, tubes, watched)
+            endpoints stats     - commands statistic
 
         """
         result = self.get_stats()
@@ -147,10 +183,16 @@ class CLI(Router, cmd.Cmd):
         print tabulate(result[args]["table"], headers=result[args]["headers"])
 
     def do_routers(self, args):
-        node = args or self.node
-        if node is not None:
+        """
+        routers <endpoint>
+            or
+        use <endpoint>
+        routers
+        """
+        endpoint = args or self.endpoint
+        if endpoint is not None:
             table = []
-            for router in self.endpoints[node].routers:
+            for router in self.endpoints[endpoint].routers:
                 name, version, hostname, pid, timestamp = router.split('/')
                 table.append([name, version, hostname, pid, datetime.fromtimestamp(float(timestamp))])
             print tabulate(table, headers=["name", "version", "hostname", "pid", "start time"])
@@ -169,12 +211,64 @@ class CLI(Router, cmd.Cmd):
         return False
 
     def do_tubes(self, args):
-        node = args or self.node
-        if node is not None:
-            result = self.get_tubes(node)
+        """
+        tubes <endpoint>
+            or
+        use <endpoint>
+        tubes
+        """
+        endpoint = args or self.endpoint
+        if endpoint is not None:
+            result = self.get_tubes(endpoint)
             print tabulate(result["table"], headers=result["headers"])
         else:
-            print "use <endpoint>"
+            print "tubes <endpoint>"
+        return False
+
+    def help_nodes(self, *args):
+        self.ap["nodes"].print_help()
+
+    def do_nodes(self, args):
+        options = self.ap["nodes"].parse_args(str(args).split())
+        if options.command == "add":
+            print "Add node: %s" % options.name
+            self.nodes[options.name] = {"%s:%d" % (options.host, int(options.port)): int(options.priority or 0)}
+        elif options.command == "show":
+            if options.name is not None:
+                if options.name in self.nodes:
+                    print "Show node: %s" % options.name
+                    for n in list(self.nodes[options.name]):
+                        print n, self.nodes[options.name].priority(n)
+                else:
+                    print "Node: %s is not exists" % options.name
+            else:
+                print "Show all nodes"
+                for k in self.nodes.keys():
+                    print self.nodes[k], list(self.nodes[k])
+        elif options.command == "del":
+            if options.name in self.nodes:
+                if options.host is not None:
+                    endpoint = "%s:%d" % (options.host, int(options.port))
+                    if endpoint in self.nodes[options.name]:
+                        if len(self.nodes[options.name]) > 1:
+                            del self.nodes[options.name][endpoint]
+                        else:
+                            del self.nodes[options.name]
+                        print "From node [%s] delete endpoint %s" % (options.name, endpoint)
+                    else:
+                        print "Endpoint %s not exists in node %s" % (endpoint, options.name)
+                else:
+                    print "Del node: %s" % options.name
+            else:
+                print "Node: %s is not exists" % options.name
+        elif options.command == "save":
+            with open(options.filename, 'w') as outfile:
+                json.dump(self.nodes, outfile, ensure_ascii=False, indent=4, sort_keys=True)
+        elif options.command == "load":
+            with open(options.filename) as infile:
+                data = json.load(infile)
+            for k, v in data.items():
+                self.nodes[k] = v
         return False
 
     @staticmethod

@@ -555,28 +555,39 @@ class Endpoints(CallbackWrap):
         #         self.put2channel(message, subscribe["channels"][randint(0, len(subscribe["channels"]) - 1)])
 
 
-class Node(object):
-    def __init__(self, name=None, endpoints=None):
+class Node(dict):
+    def __init__(self, name=None, endpoints=None, **kwargs):
+        super(Node, self).__init__(**kwargs)
+        print name, endpoints
         self.name = name
         self._priority = 0
-        self._endpoints = {}
+        a = {}
+        a.update()
         self.update(endpoints)
 
-    def update(self, other=None):
-        if isinstance(other, dict):
-            self._endpoints.update(other)
-        elif isinstance(other, (list, tuple)):
-            self._endpoints.update(dict(other))
+    def priority(self, key):
+        return self.get(key, {}).get("priority")
 
-    def add(self, value, priority=None):
-        name, host, port = split_endpoint(value)
-        if name is not None:
-            priority = priority or self._priority
-            self._priority += 1
-            self._endpoints[name] = priority
+    def update(self, other=None, **kwargs):
+        if isinstance(other, dict):
+            for k, v in other.items():
+                self.__setitem__(k, v)
+
+    def __setitem__(self, key, value):
+        if is_context(value, "endpoint"):
+            super(Node, self).__setitem__(key, value)
+        elif value is None or isinstance(value, (int, long)):
+            name, host, port = split_endpoint(key)
+            if name is not None:
+                priority = value or self._priority
+                super(Node, self).__setitem__(
+                    name,
+                    {"@context": "endpoint", "host": host, "port": port, "priority": priority}
+                )
+                self._priority += 1
 
     def __iter__(self):
-        for endpoint in sorted(self._endpoints, key=self._endpoints.get, reverse=True):
+        for endpoint in sorted(self.keys(), key=self.priority, reverse=True):
             yield endpoint
 
     def __str__(self):
@@ -584,6 +595,26 @@ class Node(object):
 
 
 class Nodes(dict):
+
+    def dump(self, indent=4, sort=True, separators=None, ascii=False):
+        result = None
+        try:
+            result = json.dumps(
+                self,
+                ensure_ascii=ascii,
+                separators=separators,
+                indent=indent,
+                sort_keys=sort,
+                default=json_util.default
+            )
+        except Exception, e:
+            print >> sys.stderr, "Create a hashing fails: %s" % str(e)
+        return result
+
+    @property
+    def md5(self):
+        return hashing(self)
+
     def __setitem__(self, key, value):
         item = self.get(key)
         if item is None:
@@ -793,25 +824,31 @@ def split_endpoint(name):
 
 
 if __name__ == "__main__":
+
     n = Nodes()
     s = Subscription(n)
-    s["net.kpcdn.deskspace.actions.save"] = "inbox@a1.deploy.bb.yellow"
-    s["net.kpcdn.deskspace.actions.save"].add(tube="receive", node="a1.deploy.bb.yellow")
+    s["net.kpcdn.deskspace.actions.save"] = "first@a1.deploy.bb.yellow"
+    s["net.kpcdn.deskspace.actions.save"].add(tube="second", node="a1.deploy.bb.yellow")
     s["net.kpcdn.deskspace.actions.save"].add(["receive", "a1.deploy.bb.yellow"])
 
-    n["a1.deploy.bb.yellow"] = [
-        ("127.0.0.1:11302", 99),
-        ("127.0.0.1:11303", -1)
-    ]
+    n["a1.deploy.bb.yellow"] = {
+        "127.0.0.1:11302": 99,
+        "127.0.0.1:11303": -1
+    }
+    print n.md5
     n["a1.deploy.bb.yellow"] = {"127.0.0.1:11301": 0}
-
-    for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
-        print ch.tube, ch.node, list(ch.node)
-    s["net.kpcdn.deskspace.actions.save"].balance = 2
-
+    print n.md5
+    print n.dump()
+    # s["net.kpcdn.deskspace.actions.save"].balance = BALANCE_LIST
     # for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
     #     print ch.tube, ch.node, list(ch.node)
-
-
+    # print "new"
+    # for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
+    #     print ch.tube, ch.node, list(ch.node)
+    #
+    # for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
+    #     print ch.tube, ch.node, list(ch.node)
+    #
+    #
     # print str(n["a1.deploy.bb.yellow"]), list(n["a1.deploy.bb.yellow"])
 
