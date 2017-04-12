@@ -28,7 +28,7 @@ def index():
 @app.route('/reporting/', methods=['GET', 'POST'])
 def tracking():
     if request.method == 'POST':
-        data = request.get_json()
+        data = request.get_json(force=True)
         data_json = json.dumps(
                 data,
                 indent=4,
