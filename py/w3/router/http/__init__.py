@@ -3,7 +3,7 @@
 import json
 from bottle import Bottle
 from bottle import server_names
-from . import Base
+from .. import Base
 
 __version__ = '0.2.3'
 
