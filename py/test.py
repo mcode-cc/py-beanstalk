@@ -5,7 +5,6 @@ import unittest
 import json
 from bson import json_util
 from w3.router import Base
-import beanstalkc
 
 # Set default encoding to 'UTF-8' instead of 'ascii'
 reload(sys)

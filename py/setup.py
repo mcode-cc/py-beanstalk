@@ -57,7 +57,9 @@ setup(
     extras_require={
         'system': [
             'json>=2.0.9',
-            'pymongo>3.2'
+            'pymongo>3.2',
+            'uritools>=2.0.0',
+            'pydns>=2.3.6'
         ]
     },
     packages=find_packages(),
