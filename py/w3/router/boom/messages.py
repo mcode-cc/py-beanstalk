@@ -361,6 +361,7 @@ class Message(object):
 
     # -- public interface --
 
+    @catch(message="Delete a job failed: %s")
     def delete(self):
         """Delete a message, by message id."""
         if self._id is not None:

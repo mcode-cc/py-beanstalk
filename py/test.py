@@ -4,7 +4,7 @@ import sys
 import unittest
 import json
 from bson import json_util
-from w3.router import Base
+from w3.router.boom.messages import MTA
 
 # Set default encoding to 'UTF-8' instead of 'ascii'
 reload(sys)
@@ -14,13 +14,13 @@ sys.setdefaultencoding("UTF8")
 class TestMethods(unittest.TestCase):
 
     def test_message(self):
-        value = {
-            "text": "test"
-        }
-        r = Base()
-        message = r.message(value)
-        print message
-        self.assertTrue(r.put("a@b", message) is not None)
+        m = MTA()
+        a = m.put({"text": "test"}, tube='test')
+        m.queue.watch('test')
+        b = m.reserve(timeout=1)
+        print m.queue.stats_tube('test')
+        m.queue.kick('test')
+        self.assertTrue(a.token == b.token)
 
 
 if __name__ == '__main__':

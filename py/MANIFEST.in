@@ -1,3 +1,4 @@
 include COPYRIGHT
 include LICENSE
 include README.rst
+include w3/router/boom/beanstalkd.api.json
