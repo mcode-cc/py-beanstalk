@@ -54,13 +54,10 @@ setup(
     author=about["__author__"],
     author_email=about["__email__"],
     platforms=('Any'),
-    extras_require={
-        'system': [
-            'json>=2.0.9',
-            'pymongo>3.2',
-            'uritools>=2.0.0',
-            'pydns>=2.3.6'
-        ]
+    install_requires={
+        'pymongo>3.2',
+        'uritools>=2.0.0',
+        'PyDNS>=2.3.6'
     },
     packages=find_packages(),
     include_package_data=True,
