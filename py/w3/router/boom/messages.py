@@ -254,12 +254,14 @@ class MTA(Connection):
                 result.append(tube)
         return result
 
-    def put(self, message, tube="receive", priority=DEFAULT_PRIORITY, delay=0, ttr=DEFAULT_TTR):
+    def put(self, message, tube="receive", subscribe=None, priority=DEFAULT_PRIORITY, delay=0, ttr=DEFAULT_TTR):
         if not isinstance(message, Message):
             message = Message(self.queue, message, reserved=False)
         message.ttr = ttr
         message.delay = delay
         message.priority = priority
+        if subscribe is not None:
+            message.subscribe = subscribe
         message.send(tube)
         return message
 
