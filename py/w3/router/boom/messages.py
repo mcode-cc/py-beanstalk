@@ -832,23 +832,25 @@ if __name__ == "__main__":
     s["net.kpcdn.deskspace.actions.save"].add(tube="second", node="a1.deploy.bb.yellow")
     s["net.kpcdn.deskspace.actions.save"].add(["receive", "a1.deploy.bb.yellow"])
 
-    n["a1.deploy.bb.yellow"] = {
-        "127.0.0.1:11302": 99,
-        "127.0.0.1:11303": -1
-    }
+    # n["a1.deploy.bb.yellow"] = {
+    #     "127.0.0.1:11302": 99,
+    #     "127.0.0.1:11303": -1
+    # }
     print n.md5
     n["a1.deploy.bb.yellow"] = {"127.0.0.1:11301": 0}
     print n.md5
     print n.dump()
-    # s["net.kpcdn.deskspace.actions.save"].balance = BALANCE_LIST
-    # for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
-    #     print ch.tube, ch.node, list(ch.node)
-    # print "new"
-    # for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
-    #     print ch.tube, ch.node, list(ch.node)
+
+    s["net.kpcdn.deskspace.actions.save"].balance = BALANCE_RND
+
+    for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
+        print ch.tube, ch.node, list(ch.node)
+    print "new"
+    for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
+        print ch.tube, ch.node, list(ch.node)
     #
-    # for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
-    #     print ch.tube, ch.node, list(ch.node)
+    for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
+        print ch.tube, ch.node, list(ch.node)
     #
     #
     # print str(n["a1.deploy.bb.yellow"]), list(n["a1.deploy.bb.yellow"])

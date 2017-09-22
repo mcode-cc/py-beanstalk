@@ -7,7 +7,7 @@ from messages import MTA, Bootstrap, Endpoints, Nodes, Subscription,\
     DEFAULT_TIMEOUT, DEFAULT_ROUTER, DEFAULT_TUBE, DEFAULT_HOST, DEFAULT_PORT
 from wrappers import CallbackWrap, is_context, DEFAULT_SCHEMA
 
-__version__ = '0.5.1'
+__version__ = '0.5.2'
 
 
 class Router(CallbackWrap):
@@ -17,6 +17,7 @@ class Router(CallbackWrap):
         self.endpoints = Endpoints(spot, log, waiting)
         self.endpoint = None
         self.tube = None
+        self.mta = None
         self.role = role
         self.bootstrap = Bootstrap(self.endpoints, self.spot, self.log)
         self.nodes = Nodes()
@@ -49,13 +50,13 @@ class Router(CallbackWrap):
         channel = self.parse(channel)
         self.endpoint = self.endpoint or channel["endpoint"]
         self.tube = self.tube or channel["tube"]
-        mta = self.endpoints[self.endpoint]
-        _watching = [mta.tube(self.role), self.tube]
-        if mta is not None:
+        self.mta = self.endpoints[self.endpoint]
+        _watching = [self.mta.tube(self.role), self.tube]
+        if self.mta is not None:
             self.endpoints.notify()
             while self.execute:
-                if mta.tube.watching(_watching):
-                    message = mta.reserve(timeout=self.waiting)
+                if self.mta.tube.watching(_watching):
+                    message = self.mta.reserve(timeout=self.waiting)
                     if message is not None:
                         self._callback(message, channel)
                     else:
