@@ -19,7 +19,7 @@ class Router(CallbackWrap):
         self.tube = None
         self.mta = None
         self.role = role
-        self.bootstrap = Bootstrap(self.endpoints, self.spot, self.log)
+        self.bootstrap = Bootstrap(self.endpoints, self.spot, self.log, waiting)
         self.nodes = Nodes()
         self.subscription = Subscription(nodes=self.nodes)
         self.waiting = waiting

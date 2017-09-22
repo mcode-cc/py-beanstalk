@@ -9,7 +9,8 @@ import json
 from bson import json_util
 from hashlib import md5
 from random import randint
-from wrappers import catch, is_context, CommandsWrap, CallbackWrap, DEFAULT_SCHEMA, DEFAULT_CONTEXT
+from ..wrappers import catch, is_context, CallbackWrap, DEFAULT_SCHEMA, DEFAULT_CONTEXT
+from beanstalk import Connection, DEFAULT_HOST, DEFAULT_PORT, CommandFailed, SocketError
 
 # Set default encoding to 'UTF-8' instead of 'ascii'
 reload(sys)
@@ -17,8 +18,7 @@ sys.setdefaultencoding("UTF8")
 
 __version__ = '0.5.1'
 
-DEFAULT_HOST = '127.0.0.1'
-DEFAULT_PORT = 11300
+
 DEFAULT_TIMEOUT = 5
 DEFAULT_PRIORITY = 2 ** 31
 DEFAULT_TTR = 120
@@ -30,137 +30,6 @@ DEFAULT_BALANCE = 0
 BALANCE_ALL = 0
 BALANCE_LIST = 1
 BALANCE_RND = 2
-
-
-class BeanstalkcException(Exception):
-    pass
-
-
-class UnexpectedResponse(BeanstalkcException):
-    pass
-
-
-class CommandFailed(BeanstalkcException):
-    pass
-
-
-class DeadlineSoon(BeanstalkcException):
-    pass
-
-
-class SocketError(BeanstalkcException):
-    pass
-
-
-class Commands(object):
-    def __init__(self, connection=None):
-        self.connection = connection
-        self.log = connection.log
-        self._yaml = __import__('yaml').load
-        with open(os.path.dirname(os.path.realpath(__file__)) + '/beanstalkd.api.json') as _file:
-            self.api = json.load(_file)
-        self.wrap = CommandsWrap(self)
-
-    @property
-    def _socket(self):
-        if self.connection.socket is None:
-            self.connection.connect()
-        return self.connection.socket
-
-    def _do(self, name, *args):
-        if name in self.api:
-            command, (ok, errors), context = self.api[name]["meta"]
-            command = str(command % args)
-            self.connection.wrap(self._socket.sendall, command)
-            status, result = self.connection.read_response()
-            if status in ok:
-                if context is None:
-                    return result
-                elif context == "yaml":
-                    body = self.connection.read_body(int(result[0]))
-                    return self._yaml(body)
-                elif context == "message":
-                    body = self.connection.read_body(int(result[1]))
-                    return Message(self, body, int(result[0]), True)
-                elif context == "int":
-                    return int(result[0])
-                else:
-                    return result[0]
-            elif status in errors:
-                raise CommandFailed(name, status, result)
-            else:
-                raise UnexpectedResponse(name, status, result)
-
-    def __call__(self, *args):
-        return self._do(*args)
-
-    def __getattr__(self, item):
-        if item in self.api:
-            self.wrap.name = item
-            return self.wrap
-
-
-class Connection(object):
-    def __init__(self, log=None, host=DEFAULT_HOST, port=None, timeout=None):
-        self.log = log
-        self.host = host
-        self.port = int(port or DEFAULT_PORT)
-        self.timeout = timeout or socket.getdefaulttimeout()
-        self.socket = None
-        self.input = None
-        self.queue = Commands(self)
-
-    def wrap(self, method, *args, **kwargs):
-        try:
-            return method(*args, **kwargs)
-        except socket.error, err:
-            self.socket = None
-            raise SocketError(err)
-
-    def read_response(self):
-        line = self.wrap(self.input.readline)
-        if not line:
-            raise SocketError()
-        result = line.split()
-        return result[0], result[1:]
-
-    def read_body(self, size):
-        result = self.wrap(self.input.read, size)
-        self.wrap(self.input.read, 2)  # trailing crlf
-        if size > 0 and not result:
-            raise SocketError()
-        return result
-
-    def connect(self):
-        """Connect to server."""
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(self.timeout)
-        self.wrap(self.socket.connect, (self.host, self.port))
-        self.socket.settimeout(None)
-        self.input = self.socket.makefile('rb')
-
-    def close(self):
-        """Close connection to server."""
-        if self.socket is not None:
-            try:
-                self.socket.sendall('quit\r\n')
-            except socket.error:
-                pass
-            try:
-                self.socket.close()
-            except socket.error:
-                pass
-
-    def reconnect(self):
-        """Re-connect to server."""
-        self.close()
-        self.connect()
-
-    def _error(self, value):
-        if self.log is not None:
-            self.log.error(value)
-        else:
-            print >> sys.stderr, value
 
 
 class Tubes(object):
@@ -253,6 +122,10 @@ class MTA(Connection):
             if _tube["name"] == DEFAULT_ROUTER and is_version(_tube["version"]):
                 result.append(tube)
         return result
+
+    def message_wrap(self, queue, body, uid=None, reserved=True):
+        print "message_wrap"
+        return Message(queue, body, uid, reserved)
 
     def put(self, message, tube="receive", subscribe=None, priority=DEFAULT_PRIORITY, delay=0, ttr=DEFAULT_TTR):
         if not isinstance(message, Message):
@@ -450,7 +323,9 @@ class Bootstrap(CallbackWrap):
     def _request(self, name, host, port):
         mta = MTA(self.log, host, port)
         for router in mta.routers:
+            print "router: ", router
             tube = mta.tube(md5(router).hexdigest())
+            print "tube: ", tube
             if mta.tube.watch(tube):
                 request = mta.message(
                     {"@context": "callback", "kwargs": {"tube": tube, "endpoint": name}},
@@ -459,7 +334,9 @@ class Bootstrap(CallbackWrap):
                 request.priority = 90  # Приоритет 90 - 99
                 # print "************* send request: ", str(request)
                 request.send(router)
+                print "reserve: %ss" % str(self.timeout)
                 message = mta.reserve(timeout=self.timeout)
+                print message
                 if message is not None:
                     self.endpoints[name] = mta
                     self._callback(message, name)

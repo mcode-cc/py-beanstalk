@@ -27,17 +27,6 @@ def catch(default=None, message="%s"):
     return decorator
 
 
-class CommandsWrap(object):
-    def __init__(self, own=None):
-        self.own = own
-        self.name = None
-
-    def __call__(self, *args):
-        if self.name is not None:
-            name, self.name = self.name, None
-            return self.own(name, *args)
-
-
 class CallbackWrap(object):
     def __init__(self, spot=None, log=None):
         self.spot = spot
