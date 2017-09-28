@@ -7,6 +7,8 @@ import socket
 DEFAULT_HOST = '127.0.0.1'
 DEFAULT_PORT = 11300
 
+__version__ = '0.0.1'
+
 
 class BeanstalkcException(Exception):
     pass

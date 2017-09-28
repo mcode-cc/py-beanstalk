@@ -1,15 +1,25 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+import os
 import cmd
 from . import Router
 from tabulate import tabulate
 import json
-from bson import json_util
+from xshl import Macro
+# from bson import json_util
 from datetime import timedelta, datetime
-import time
-from argparse import ArgumentParser
+# import time
+# from argparse import ArgumentParser
+# from pprint import pprint
 
 __version__ = '0.1.0'
+
+MACROS = {}
+path = os.path.split(__file__)[0]
+for name in ["nodes"]:
+    with open(os.path.join(path, name + ".en.xshl.json")) as content:
+        MACROS[name] = json.load(content)
 
 
 class CLI(Router, cmd.Cmd):
@@ -22,50 +32,25 @@ class CLI(Router, cmd.Cmd):
         self.intro = "Boom shell version: %s" % __version__
         self.channel = None
         self.endpoint = None
-        self.ap = {
-            "nodes": ArgumentParser(
-                'nodes',
-                description='A foo that bars',
-                epilog="And that's how you'd foo a bar",
-                add_help=False
-            )
-        }
-        self.ap["nodes"].exit = self._exit
-        subparsers = self.ap["nodes"].add_subparsers(dest='command')
-        nodes_add = subparsers.add_parser('add')
-        nodes_add.exit = self._exit
-        nodes_add.add_argument("-n", "--name", dest='name', required=True, help="Node name")
-        nodes_add.add_argument("-H", "--host", dest='host', required=True, help="Endpoint host")
-        nodes_add.add_argument("-P", "--port", dest='port', default=11300, required=False, help="Endpoint port")
-        nodes_add.add_argument("-p", "--priority", dest='priority', required=False, help="Endpoint priority")
-        nodes_add.add_argument("-d", "--description", dest='description', required=False, help="Endpoint description")
-        nodes_show = subparsers.add_parser('show')
-        nodes_show.exit = self._exit
-        nodes_show.add_argument("-n", "--name", dest='name', required=False, help="Node name")
-        nodes_del = subparsers.add_parser('del')
-        nodes_del.exit = self._exit
-        nodes_del.add_argument("-n", "--name", dest='name', required=True, help="Node name")
-        nodes_del.add_argument("-H", "--host", dest='host', required=False, help="Endpoint host")
-        nodes_del.add_argument("-P", "--port", dest='port', default=11300, required=False, help="Endpoint port")
-        nodes_save = subparsers.add_parser('save')
-        nodes_save.exit = self._exit
-        nodes_save.add_argument("-f", "--filename", dest='filename', required=True, help="File name for save nodes")
-        nodes_load = subparsers.add_parser('load')
-        nodes_load.exit = self._exit
-        nodes_load.add_argument("-f", "--filename", dest='filename', required=True, help="File name for load nodes")
+        macro = Macro(MACROS["nodes"], debug=False)
+        macro()
+        self.ap = macro.scope
+        for item in ["nodes", "add", "show", "del", "save", "load"]:
+            macro.scope[item].exit = self._exit
 
-    def _exit(self, status=0, message=None):
-        print status
-        print message
+    @staticmethod
+    def _exit(status=0, message=None):
+        print(status)
+        print(message)
 
     def do_use(self, args):
         """Switched to node <name>"""
         if args in self.endpoints:
             self.endpoint = args
-            print "Switched to node %s" % args
+            print("Switched to node %s" % args)
             self.prompt = "%s> " % args
         else:
-            print "Non-existent node %s" % args
+            print("Non-existent node %s" % args)
 
     def get_stats(self):
         result = {
@@ -180,7 +165,7 @@ class CLI(Router, cmd.Cmd):
         result = self.get_stats()
         if args not in result:
             args = "top"
-        print tabulate(result[args]["table"], headers=result[args]["headers"])
+        print(tabulate(result[args]["table"], headers=result[args]["headers"]))
 
     def do_routers(self, args):
         """
@@ -195,19 +180,19 @@ class CLI(Router, cmd.Cmd):
             for router in self.endpoints[endpoint].routers:
                 name, version, hostname, pid, timestamp = router.split('/')
                 table.append([name, version, hostname, pid, datetime.fromtimestamp(float(timestamp))])
-            print tabulate(table, headers=["name", "version", "hostname", "pid", "start time"])
+            print(tabulate(table, headers=["name", "version", "hostname", "pid", "start time"]))
         else:
-            print "use <endpoint>"
+            print("use <endpoint>")
         return False
 
     def do_channel(self, args):
         if args == "":
-            print self.channel
-            print self.parse(self.channel)
+            print(self.channel)
+            print(self.parse(self.channel))
         else:
             self.channel = args
             self.bootstrap.run(**self.parse(self.channel))
-            print self.channel
+            print(self.channel)
         return False
 
     def do_tubes(self, args):
@@ -220,9 +205,9 @@ class CLI(Router, cmd.Cmd):
         endpoint = args or self.endpoint
         if endpoint is not None:
             result = self.get_tubes(endpoint)
-            print tabulate(result["table"], headers=result["headers"])
+            print(tabulate(result["table"], headers=result["headers"]))
         else:
-            print "tubes <endpoint>"
+            print("tubes <endpoint>")
         return False
 
     def help_nodes(self, *args):
@@ -231,20 +216,20 @@ class CLI(Router, cmd.Cmd):
     def do_nodes(self, args):
         options = self.ap["nodes"].parse_args(str(args).split())
         if options.command == "add":
-            print "Add node: %s" % options.name
+            print("Add node: %s" % options.name)
             self.nodes[options.name] = {"%s:%d" % (options.host, int(options.port)): int(options.priority or 0)}
         elif options.command == "show":
             if options.name is not None:
                 if options.name in self.nodes:
-                    print "Show node: %s" % options.name
+                    print("Show node: %s" % options.name)
                     for n in list(self.nodes[options.name]):
-                        print n, self.nodes[options.name].priority(n)
+                        print(n, self.nodes[options.name].priority(n))
                 else:
-                    print "Node: %s is not exists" % options.name
+                    print("Node: %s is not exists" % options.name)
             else:
-                print "Show all nodes"
+                print("Show all nodes")
                 for k in self.nodes.keys():
-                    print self.nodes[k], list(self.nodes[k])
+                    print(self.nodes[k], list(self.nodes[k]))
         elif options.command == "del":
             if options.name in self.nodes:
                 if options.host is not None:
@@ -254,13 +239,13 @@ class CLI(Router, cmd.Cmd):
                             del self.nodes[options.name][endpoint]
                         else:
                             del self.nodes[options.name]
-                        print "From node [%s] delete endpoint %s" % (options.name, endpoint)
+                        print("From node [%s] delete endpoint %s" % (options.name, endpoint))
                     else:
-                        print "Endpoint %s not exists in node %s" % (endpoint, options.name)
+                        print("Endpoint %s not exists in node %s" % (endpoint, options.name))
                 else:
-                    print "Del node: %s" % options.name
+                    print("Del node: %s" % options.name)
             else:
-                print "Node: %s is not exists" % options.name
+                print("Node: %s is not exists" % options.name)
         elif options.command == "save":
             with open(options.filename, 'w') as outfile:
                 json.dump(self.nodes, outfile, ensure_ascii=False, indent=4, sort_keys=True)
@@ -277,12 +262,12 @@ class CLI(Router, cmd.Cmd):
         return True
 
     def default(self, line):
-        print "Несуществующая команда"
+        print("Несуществующая команда")
 
     def run(self, channel=None):
         self.channel = channel
-        print "Connected to %s" % channel
+        print("Connected to %s" % channel)
         try:
             self.cmdloop()
         except KeyboardInterrupt:
-            print "завершение сеанса..."
+            print("завершение сеанса...")

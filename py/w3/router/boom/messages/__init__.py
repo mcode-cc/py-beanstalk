@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import sys
 import os
 import socket
@@ -9,12 +10,13 @@ import json
 from bson import json_util
 from hashlib import md5
 from random import randint
+from past.builtins import basestring
 from ..wrappers import catch, is_context, CallbackWrap, DEFAULT_SCHEMA, DEFAULT_CONTEXT
 from beanstalk import Connection, DEFAULT_HOST, DEFAULT_PORT, CommandFailed, SocketError
 
 # Set default encoding to 'UTF-8' instead of 'ascii'
-reload(sys)
-sys.setdefaultencoding("UTF8")
+# reload(sys)
+# sys.setdefaultencoding("UTF8")
 
 __version__ = '0.5.1'
 
@@ -43,7 +45,7 @@ class Tubes(object):
         result = []
         try:
             result = self._queue.list_tubes()
-        except Exception, e:
+        except Exception as e:
             self._error("Get a list of tubes failed: %s" % str(e))
         return result
 
@@ -91,7 +93,7 @@ class Tubes(object):
         if self.log is not None:
             self.log.error(value)
         else:
-            print >> sys.stderr, value
+            err_print(value)
 
     @staticmethod
     def parse(name):
@@ -124,7 +126,7 @@ class MTA(Connection):
         return result
 
     def message_wrap(self, queue, body, uid=None, reserved=True):
-        print "message_wrap"
+        print("message_wrap")
         return Message(queue, body, uid, reserved)
 
     def put(self, message, tube="receive", subscribe=None, priority=DEFAULT_PRIORITY, delay=0, ttr=DEFAULT_TTR):
@@ -145,7 +147,7 @@ class MTA(Connection):
                 message = self.queue.reserve()
             else:
                 message = self.queue('reserve_with_timeout', int(timeout))
-        except CommandFailed, (_, status, results):
+        except CommandFailed as (_, status, results):
             if status == 'TIMED_OUT':
                 return None
             elif status == 'DEADLINE_SOON':
@@ -292,14 +294,14 @@ class Message(object):
                 sort_keys=True,
                 ensure_ascii=False
             )
-        except Exception, e:
+        except Exception as e:
             result = "json dump a message fails: %s" % str(e)
         return result
 
     def send(self, tube="receive"):
         try:
             message = json.dumps(self.as_dict(), default=json_util.default)
-        except Exception, e:
+        except Exception as e:
             self.errors.append("json dump a message fails: %s" % str(e))
         else:
             current = self._queue.using()
@@ -323,9 +325,9 @@ class Bootstrap(CallbackWrap):
     def _request(self, name, host, port):
         mta = MTA(self.log, host, port)
         for router in mta.routers:
-            print "router: ", router
+            print("router: ", router)
             tube = mta.tube(md5(router).hexdigest())
-            print "tube: ", tube
+            print("tube: ", tube)
             if mta.tube.watch(tube):
                 request = mta.message(
                     {"@context": "callback", "kwargs": {"tube": tube, "endpoint": name}},
@@ -334,9 +336,9 @@ class Bootstrap(CallbackWrap):
                 request.priority = 90  # Приоритет 90 - 99
                 # print "************* send request: ", str(request)
                 request.send(router)
-                print "reserve: %ss" % str(self.timeout)
+                print("reserve: %ss" % str(self.timeout))
                 message = mta.reserve(timeout=self.timeout)
-                print message
+                print(message)
                 if message is not None:
                     self.endpoints[name] = mta
                     self._callback(message, name)
@@ -353,7 +355,7 @@ class Bootstrap(CallbackWrap):
         for endpoint in endpoints:
             name, host, port = split_endpoint(endpoint)
             if name not in self.endpoints:
-                print "************* run bootstrap: ", name, self.endpoints.keys()
+                print("************* run bootstrap: ", name, self.endpoints.keys())
                 self._request(name, host, port)
 
 
@@ -397,7 +399,7 @@ class Endpoints(CallbackWrap):
                     "method": "run"
                 }
             )
-            print "************* send endpoints: ", self._items.keys()
+            print("************* send endpoints: ", self._items.keys())
             message.send(tube)
 
     def notify(self):
@@ -409,18 +411,18 @@ class Endpoints(CallbackWrap):
                     subscribe={"spot": self.spot, "schema": DEFAULT_SCHEMA, "method": "endpoints.update"}
                 )
                 _notify.priority = 91
-                print "************* send notify: ", tube
+                print("************* send notify: ", tube)
                 _notify.send(tube)
 
     def update(self, endpoints):
-        print "************* received notify: ", endpoints
+        print("************* received notify: ", endpoints)
         for endpoint in endpoints:
             name, host, port = split_endpoint(endpoint)
             if name not in self._items:
                 self._items[name] = MTA(self.log, host=host, port=port)
 
     def send(self, message):
-        print message
+        print(message)
         # subscribe = self.subscribe.get(message.subscribe)
         # if subscribe is not None:
         #     method = subscribe.get("method", "all")
@@ -438,7 +440,7 @@ class Endpoints(CallbackWrap):
 class Node(dict):
     def __init__(self, name=None, endpoints=None, **kwargs):
         super(Node, self).__init__(**kwargs)
-        print name, endpoints
+        print(name, endpoints)
         self.name = name
         self._priority = 0
         a = {}
@@ -487,8 +489,8 @@ class Nodes(dict):
                 sort_keys=sort,
                 default=json_util.default
             )
-        except Exception, e:
-            print >> sys.stderr, "Create a hashing fails: %s" % str(e)
+        except Exception as e:
+            err_print("Create a hashing fails: %s" % str(e))
         return result
 
     @property
@@ -685,8 +687,8 @@ def hashing(value):
             separators=(',', ':'),
             default=json_util.default
         )
-    except Exception, e:
-        print >> sys.stderr, "Create a hashing fails: %s" % str(e)
+    except Exception as e:
+        print("Create a hashing fails: %s" % str(e))
     else:
         result = md5(_dump).hexdigest()
     return result
@@ -703,6 +705,10 @@ def split_endpoint(name):
         return name, host, port
 
 
+def err_print(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
 if __name__ == "__main__":
 
     n = Nodes()
@@ -715,21 +721,21 @@ if __name__ == "__main__":
     #     "127.0.0.1:11302": 99,
     #     "127.0.0.1:11303": -1
     # }
-    print n.md5
+    print(n.md5)
     n["a1.deploy.bb.yellow"] = {"127.0.0.1:11301": 0}
-    print n.md5
-    print n.dump()
+    print(n.md5)
+    print(n.dump())
 
     s["net.kpcdn.deskspace.actions.save"].balance = BALANCE_RND
 
     for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
-        print ch.tube, ch.node, list(ch.node)
-    print "new"
+        print(ch.tube, ch.node, list(ch.node))
+    print("new")
     for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
-        print ch.tube, ch.node, list(ch.node)
+        print(ch.tube, ch.node, list(ch.node))
     #
     for ch in list(s["net.kpcdn.deskspace.actions.save"].channels):
-        print ch.tube, ch.node, list(ch.node)
+        print(ch.tube, ch.node, list(ch.node))
     #
     #
     # print str(n["a1.deploy.bb.yellow"]), list(n["a1.deploy.bb.yellow"])
