@@ -3,6 +3,7 @@
 from __future__ import print_function
 import sys
 import socket
+from hashlib import md5
 
 # Set default encoding to 'UTF-8' instead of 'ascii'
 # reload(sys)
@@ -87,6 +88,22 @@ def is_context(value, context=None):
 
 def err_print(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
+
+
+def hashing(value):
+    result = None
+    try:
+        _dump = json.dumps(
+            value,
+            sort_keys=True,
+            separators=(',', ':'),
+            default=json_util.default
+        )
+    except Exception as e:
+        print("Create a hashing fails: %s" % str(e))
+    else:
+        result = md5(_dump).hexdigest()
+    return result
 
 
 def split_endpoint(name):

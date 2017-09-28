@@ -3,7 +3,8 @@
 import signal
 from uritools import urisplit
 from time import sleep
-from messages import MTA, Nodes, Subscription, DEFAULT_ROUTER, DEFAULT_TUBE, DEFAULT_HOST, DEFAULT_PORT
+from messages import MTA, DEFAULT_ROUTER, DEFAULT_HOST, DEFAULT_PORT
+from subscriptions import Nodes, Subscription, DEFAULT_TUBE
 from wrappers import CallbackWrap, is_context, DEFAULT_SCHEMA, DEFAULT_TIMEOUT
 from bootstrap import Bootstrap, Endpoints
 
