@@ -7,7 +7,7 @@ import json
 from bson import json_util
 from past.builtins import basestring
 
-from ..wrappers import catch, is_context, hashing, DEFAULT_CONTEXT
+from ..wrappers import catch, is_context, hashing, err_print, DEFAULT_CONTEXT
 from ..subscriptions import DEFAULT_ROUTER
 from beanstalk import Connection, DEFAULT_HOST, DEFAULT_PORT, CommandFailed, SocketError
 from tubes import Tubes
@@ -106,9 +106,10 @@ class Message(object):
         self.indent = None
         if isinstance(body, basestring):
             try:
-                body = json.loads(str(body).encode('utf-8'))
-            except:
-                pass
+                body = json.loads(str(body).encode('utf-8'), object_hook=json_util.object_hook)
+            except Exception as e:
+                err_print(str(e))
+                body = {}
         if is_context(body, context=self._context):
             self._load(body)
         else:

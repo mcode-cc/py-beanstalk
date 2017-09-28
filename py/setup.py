@@ -55,7 +55,6 @@ setup(
     author_email=about["__email__"],
     platforms=('Any'),
     install_requires={
-        'pymongo>3.2',
         'uritools>=2.0.0',
         'PyDNS>=2.3.6'
     },
