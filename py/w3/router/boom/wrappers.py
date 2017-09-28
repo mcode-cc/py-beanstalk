@@ -8,7 +8,7 @@ import socket
 # reload(sys)
 # sys.setdefaultencoding("UTF8")
 
-DEFAULT_SCHEMA  = 'boom'
+DEFAULT_SCHEMA = 'boom'
 DEFAULT_CONTEXT = 'message'
 DEFAULT_TIMEOUT = 5
 
@@ -87,6 +87,7 @@ def is_context(value, context=None):
 
 def err_print(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
+
 
 def split_endpoint(name):
     try:

@@ -1,13 +1,15 @@
+# -*- coding: utf-8 -*-
+
+from __future__ import print_function
 import sys
 import os
 import json
 import socket
 
-
 DEFAULT_HOST = '127.0.0.1'
 DEFAULT_PORT = 11300
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 
 class BeanstalkcException(Exception):
@@ -76,7 +78,7 @@ class Commands(object):
                     body = self.connection.read_body(int(result[0]))
                     return self._yaml(body)
                 elif context == "message":
-                    print context
+                    print(context)
                     body = self.connection.read_body(int(result[1]))
                     return self.connection.message_wrap(self, body, int(result[0]), True)
                 elif context == "int":
@@ -112,9 +114,9 @@ class Connection(object):
     def wrap(self, method, *args, **kwargs):
         try:
             return method(*args, **kwargs)
-        except socket.error, err:
+        except socket.error as e:
             self.socket = None
-            raise SocketError(err)
+            raise SocketError(e)
 
     def read_response(self):
         line = self.wrap(self.input.readline)
@@ -162,4 +164,4 @@ class Connection(object):
         if self.log is not None:
             self.log.error(value)
         else:
-            print >> sys.stderr, value
+            print(value, file=sys.stderr)
