@@ -1,13 +1,18 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import sys
+import socket
 
 # Set default encoding to 'UTF-8' instead of 'ascii'
-reload(sys)
-sys.setdefaultencoding("UTF8")
+# reload(sys)
+# sys.setdefaultencoding("UTF8")
 
-DEFAULT_SCHEMA = 'boom'
+DEFAULT_SCHEMA  = 'boom'
 DEFAULT_CONTEXT = 'message'
+DEFAULT_TIMEOUT = 5
+
+__version__ = '0.5.4'
 
 
 def catch(default=None, message="%s"):
@@ -16,12 +21,12 @@ def catch(default=None, message="%s"):
             result = default
             try:
                 result = method(*args, **kwargs)
-            except Exception, e:
+            except Exception as e:
                 _log, _message = getattr(args[0], "log", None), message % str(e)
                 if _log is not None:
                     _log.error(_message)
                 else:
-                    print >> sys.stderr, _message
+                    err_print(_message)
             return result
         return wrapped
     return decorator
@@ -37,7 +42,7 @@ class CallbackWrap(object):
         if self.log is not None:
             self.log.error(value)
         else:
-            print >> sys.stderr, value
+            err_print(value)
 
     def _method(self, method, schema=DEFAULT_SCHEMA):
         source = self if schema == DEFAULT_SCHEMA else globals().get(schema)
@@ -78,3 +83,17 @@ class CallbackWrap(object):
 def is_context(value, context=None):
     context = context or DEFAULT_CONTEXT
     return isinstance(value, dict) and '@context' in value and value['@context'] == context
+
+
+def err_print(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+def split_endpoint(name):
+    try:
+        host = socket.inet_ntoa(socket.inet_aton(name.partition(':')[0]))
+        port = int(name.partition(':')[2] or 11300)
+        name = "%s:%d" % (host, port)
+    except:
+        return None, None, None
+    else:
+        return name, host, port

@@ -3,11 +3,11 @@
 import signal
 from uritools import urisplit
 from time import sleep
-from messages import MTA, Bootstrap, Endpoints, Nodes, Subscription,\
-    DEFAULT_TIMEOUT, DEFAULT_ROUTER, DEFAULT_TUBE, DEFAULT_HOST, DEFAULT_PORT
-from wrappers import CallbackWrap, is_context, DEFAULT_SCHEMA
+from messages import MTA, Nodes, Subscription, DEFAULT_ROUTER, DEFAULT_TUBE, DEFAULT_HOST, DEFAULT_PORT
+from wrappers import CallbackWrap, is_context, DEFAULT_SCHEMA, DEFAULT_TIMEOUT
+from bootstrap import Bootstrap, Endpoints
 
-__version__ = '0.5.2'
+__version__ = '0.5.4'
 
 
 class Router(CallbackWrap):
