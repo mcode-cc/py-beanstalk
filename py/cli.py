@@ -1,8 +1,8 @@
 
 from argparse import ArgumentParser
-from client import CLI
+from boom.client import CLI
 from warehouse import Logger
-from . import Router
+from boom import Router
 
 __version__ = '0.2.0'
 
