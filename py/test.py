@@ -14,7 +14,6 @@ class TestMethods(unittest.TestCase):
         a = m.put({"text": "test"}, tube='test')
         m.queue.watch('test')
         b = m.reserve(timeout=1)
-        m.queue.kick('test')
         self.assertTrue(a.token == b.token)
 
 
