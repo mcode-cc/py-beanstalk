@@ -82,5 +82,5 @@ setup(
         "Topic :: Software Development :: Libraries :: Application Frameworks",
         "Topic :: System :: Networking"
     ],
-    keywords='w3 router queue beanstalkd bottle'
+    keywords='boom router queue beanstalkd'
 )

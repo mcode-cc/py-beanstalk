@@ -39,11 +39,11 @@ __all__ = [
     "__copyright__"
 ]
 
-__title__ = "w3"
-__summary__ = "High-Loaded application server"
+__title__ = "boom"
+__summary__ = "Distributed streaming messaging system"
 __uri__ = "https://w3.mcode.cc/"
-__version__ = "0.5.1"
+__version__ = "0.6.0"
 __author__ = "MCode GmbH"
-__email__ = "w3@mcode.cc"
+__email__ = "boom@mcode.cc"
 __license__ = "GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007"
 __copyright__ = "2017 %s" % __author__
