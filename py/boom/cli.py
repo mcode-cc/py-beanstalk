@@ -1,13 +1,20 @@
 
 from argparse import ArgumentParser
-from router.boom.client import CLI
+from client import CLI
 from warehouse import Logger
+from . import Router
 
-__version__ = '0.1.0'
+__version__ = '0.2.0'
 
 
-def main():
+if __name__ == "__main__":
     ap = ArgumentParser('boom')
+    ap.add_argument(
+        "-m", "--method",
+        dest='method',
+        required=True,
+        help="method"
+    )
     ap.add_argument(
         "-w", "--watch",
         dest='watch',
@@ -15,10 +22,9 @@ def main():
         help="watch channel"
     )
     options = ap.parse_args()
-    app = CLI(log=Logger("CLI"))
+    if options.method == 'router':
+        app = Router(log=Logger('Router'))
+    else:
+        app = CLI(log=Logger("CLI"))
     app.bootstrap.run(**app.parse(options.watch))
     app.run(channel=options.watch)
-
-
-if __name__ == "__main__":
-    main()
