@@ -41,8 +41,8 @@ __all__ = [
 
 __title__ = "boom"
 __summary__ = "Distributed streaming messaging system"
-__uri__ = "https://w3.mcode.cc/"
-__version__ = "0.6.0"
+__uri__ = "https://boom.mcode.cc/"
+__version__ = "0.6.7"
 __author__ = "MCode GmbH"
 __email__ = "boom@mcode.cc"
 __license__ = "GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007"

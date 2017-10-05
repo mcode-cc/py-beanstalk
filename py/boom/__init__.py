@@ -1,28 +1,22 @@
 # -*- coding: utf-8 -*-
 
 import signal
+from .wrappers import CallbackWrap, is_context, DEFAULT_SCHEMA, DEFAULT_TIMEOUT
 from uritools import urisplit
-from time import sleep
-from messages import MTA, DEFAULT_ROUTER, DEFAULT_HOST, DEFAULT_PORT
-from subscriptions import Nodes, Subscription, DEFAULT_TUBE
-from wrappers import CallbackWrap, is_context, DEFAULT_SCHEMA, DEFAULT_TIMEOUT
-from bootstrap import Bootstrap, Endpoints
-
 __version__ = '0.5.4'
+
+DEFAULT_TUBE = "workers"
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 4222
 
 
 class Router(CallbackWrap):
 
-    def __init__(self, log=None, spot='press.root', waiting=DEFAULT_TIMEOUT, role=DEFAULT_ROUTER):
+    def __init__(self, log=None, spot='press.root', waiting=DEFAULT_TIMEOUT):
         super(Router, self).__init__(spot=spot, log=log)
-        self.endpoints = Endpoints(spot, log, waiting)
         self.endpoint = None
         self.tube = None
         self.mta = None
-        self.role = role
-        self.bootstrap = Bootstrap(self.endpoints, self.spot, self.log, waiting)
-        self.nodes = Nodes()
-        self.subscription = Subscription(nodes=self.nodes)
         self.waiting = waiting
         self.execute = True
 
@@ -51,19 +45,13 @@ class Router(CallbackWrap):
         channel = self.parse(channel)
         self.endpoint = self.endpoint or channel["endpoint"]
         self.tube = self.tube or channel["tube"]
-        self.mta = self.endpoints[self.endpoint]
-        _watching = [self.mta.tube(self.role), self.tube]
         if self.mta is not None:
-            self.endpoints.notify()
             while self.execute:
-                if self.mta.tube.watching(_watching):
-                    message = self.mta.reserve(timeout=self.waiting)
-                    if message is not None:
-                        self._callback(message, channel)
-                    else:
-                        self.timeout()
+                message = self.mta.reserve(timeout=self.waiting)
+                if message is not None:
+                    self._callback(message, channel)
                 else:
-                    sleep(self.waiting)
+                    self.timeout()
         self.log.info("exit")
 
     def _signal_handler(self, signum, frame):

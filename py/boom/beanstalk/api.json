@@ -3,49 +3,49 @@
         "group": "message",
         "name": "delete",
 		"description": "Delete a job, by job id.",
-        "meta":  ["delete %d\r\n", [["DELETED"], ["NOT_FOUND"]], null]
+        "meta":  ["delete {0}\r\n", [["DELETED"], ["NOT_FOUND"]], null]
     },
     "release": {
         "group": "message",
         "name": "release",
 		"description": "Release a reserved job back into the ready queue.",
-        "meta":  ["release %d %d %d\r\n", [["RELEASED", "BURIED"], ["NOT_FOUND"]], null]
+        "meta":  ["release {0} {1} {2}\r\n", [["RELEASED", "BURIED"], ["NOT_FOUND"]], null]
     },
     "bury": {
         "group": "message",
         "name": "bury",
 		"description": "Bury a job, by job id.",
-        "meta":  ["bury %d %d\r\n", [["BURIED"], ["NOT_FOUND"]], null]
+        "meta":  ["bury {0} {1}\r\n", [["BURIED"], ["NOT_FOUND"]], null]
     },
     "touch": {
         "group": "message",
         "name": "touch",
 		"description": "Touch a job, by job id, requesting more time to work on a reserved job before it expires.",
-        "meta":  ["touch %d\r\n", [["TOUCHED"], ["NOT_FOUND"]], null]
+        "meta":  ["touch {0}\r\n", [["TOUCHED"], ["NOT_FOUND"]], null]
     },
     "stats_job": {
         "group": "message",
         "name": "stats",
 		"description": "Return a dict of stats about a job, by job id.",
-        "meta":  ["stats-job %d\r\n", [["OK"], ["NOT_FOUND"]], "yaml"]
+        "meta":  ["stats-job {0}\r\n", [["OK"], ["NOT_FOUND"]], "yaml"]
     },
     "kick_job": {
         "group": "message",
         "name": "kick",
 		"description": "Kick a specific job into the ready queue.",
-        "meta":  ["kick-job %d\r\n", [["KICKED"], ["NOT_FOUND"]], null]
+        "meta":  ["kick-job {0}\r\n", [["KICKED"], ["NOT_FOUND"]], null]
     },
     "put": {
         "group": "message",
         "name": "put",
 		"description": "Put a job into the current tube. Returns job id.",
-        "meta":  ["put %d %d %d %d\r\n%s\r\n", [["INSERTED"], ["JOB_TOO_BIG","BURIED","DRAINING"]], "int"]
+        "meta":  ["put {0} {1} {2} {3}\r\n{4}\r\n", [["INSERTED"], ["JOB_TOO_BIG","BURIED","DRAINING"]], "int"]
     },
     "reserve_with_timeout": {
         "group": "message",
         "name": "reserve",
 		"description": "Reserve a job from one of the watched tubes, with optional timeout in seconds. Returns a Job object, or None if the request times out.",
-        "meta":  ["reserve-with-timeout %d\r\n", [["RESERVED"], ["DEADLINE_SOON", "TIMED_OUT"]], "message"]
+        "meta":  ["reserve-with-timeout {0}\r\n", [["RESERVED"], ["DEADLINE_SOON", "TIMED_OUT"]], "message"]
     },
     "reserve": {
         "group": "message",
@@ -57,7 +57,7 @@
         "group": "peek",
         "name": "peek",
 		"description": "Peek at a job. Returns a Job, or None.",
-		"meta":   ["peek %d\r\n", [[], []], "peek"]
+		"meta":   ["peek {0}\r\n", [[], []], "peek"]
     },
     "peek_ready": {
         "group": "peek",
@@ -93,7 +93,7 @@
         "group": "tube",
         "name": "use",
 		"description": "Use a given tube.",
-		"meta":   ["use %s\r\n", [["USING"], []], "value"]
+		"meta":   ["use {0}\r\n", [["USING"], []], "value"]
     },
     "watching": {
         "group": "tube",
@@ -105,25 +105,25 @@
         "group": "tube",
         "name": "watch",
 		"description": "Watch a given tube.",
-		"meta":  ["watch %s\r\n", [["WATCHING"], []], "int"]
+		"meta":  ["watch {0}\r\n", [["WATCHING"], []], "int"]
     },
     "ignore": {
         "group": "tube",
         "name": "ignore",
 		"description": "Stop watching a given tube.",
-        "meta":  ["ignore %s\r\n", [["WATCHING"], ["NOT_IGNORED"]], "int"]
+        "meta":  ["ignore {0}\r\n", [["WATCHING"], ["NOT_IGNORED"]], "int"]
     },
     "stats_tube": {
         "group": "tube",
         "name": "stats",
 		"description": "Return a dict of stats about a given tube.",
-		"meta":   ["stats-tube %s\r\n", [["OK"], ["NOT_FOUND"]], "yaml"]
+		"meta":   ["stats-tube {0}\r\n", [["OK"], ["NOT_FOUND"]], "yaml"]
     },
     "pause_tube": {
         "group": "tube",
         "name": "pause",
 		"description": "Pause a tube for a given delay time, in seconds.",
-        "meta": ["pause-tube %s %d\r\n", [["PAUSED"], ["NOT_FOUND"]], null]
+        "meta": ["pause-tube {0} {0}\r\n", [["PAUSED"], ["NOT_FOUND"]], null]
     },
     "stats": {
         "group": "queue",
@@ -135,6 +135,6 @@
         "group": "queue",
         "name": "kick",
 		"description": "Kick at most bound jobs into the ready queue.",
-		"meta":  ["kick %d\r\n", [["KICKED"], []], "int"]
+		"meta":  ["kick {0}\r\n", [["KICKED"], []], "int"]
     }
 }

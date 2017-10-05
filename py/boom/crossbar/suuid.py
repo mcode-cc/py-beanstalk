@@ -1,6 +1,10 @@
+# -*- coding: utf-8 -*-
+
 import random
 import time
 from hashlib import md5
+
+__version__ = '0.2.0'
 
 
 class Luhn(object):
@@ -9,7 +13,7 @@ class Luhn(object):
         self.salts = salts
 
     def _token(self, uuid, ua=''):
-        token = md5(uuid + ua + self.salts[int(uuid[0])]).hexdigest()
+        token = md5(str(uuid + ua + self.salts[int(uuid[0])]).encode()).hexdigest()
         return token
 
     @staticmethod
@@ -37,7 +41,7 @@ class Luhn(object):
 
     def make(self, group, ua=''):
         uuid = str(group) + str(int(time.time())) + ''.join(map(
-            str, [random.randint(0, 9) for _ in xrange(4)]
+            str, [random.randint(0, 9) for _ in range(4)]
         ))
         check_digit = self._checksum(int(uuid) * 10)
         if check_digit == 0:

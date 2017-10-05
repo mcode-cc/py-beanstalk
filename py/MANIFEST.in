@@ -1,4 +1,4 @@
 include COPYRIGHT
 include LICENSE
 include README.rst
-include boom/messages/beanstalk/api.json
+include boom/beanstalk/api.json

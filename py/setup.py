@@ -37,7 +37,7 @@ base_dir = os.path.dirname(__file__)
 about = {}
 if base_dir:
     os.chdir(base_dir)
-with open(os.path.join(base_dir, "w3", "__about__.py")) as f:
+with open(os.path.join(base_dir, "boom", "__about__.py")) as f:
     exec(f.read(), about)
 
 with open(os.path.join(base_dir, "README.rst")) as f:
@@ -55,8 +55,7 @@ setup(
     author_email=about["__email__"],
     platforms=('Any'),
     install_requires={
-        'uritools>=2.0.0',
-        'PyDNS>=2.3.6'
+        'uritools>=2.0.0'
     },
     packages=find_packages(),
     include_package_data=True,

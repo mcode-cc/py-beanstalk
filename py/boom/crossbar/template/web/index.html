@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+
+<html>
+    <body>
+        <img src="//s2.stc.all.kpcdn.net/img/LogoKP@2x.svg" />
+        <h1>Cloud Messaging Service (v.0.1.1)</h1>
+<script>AUTOBAHN_DEBUG = true;</script>
+<script src="js/autobahn.min.js"></script>
+<script src="js/wamp.js"></script>
+
+<script>
+    var subscribe = [
+        {
+            "uri": "press.root.subscribe.notify",
+            "received": function  (args) {
+                var message = args[0];
+                console.log(message);
+            }
+        }
+    ];
+    var Router = new WAMP(subscribe);
+    Router.open();
+</script>
+   </body>
+</html>
