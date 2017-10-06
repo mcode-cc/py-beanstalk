@@ -1,4 +1,5 @@
 include COPYRIGHT
 include LICENSE
 include README.md
+include TUTORIAL.md
 include beanstalkm/api.json

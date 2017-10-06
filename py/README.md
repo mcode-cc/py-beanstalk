@@ -21,17 +21,29 @@ Usage
 
 Here is a short example, to illustrate the flavor of beanstalkc:
 
-    >>> from beanstalkm import Client, DEFAULT_TUBE
-    >>> beanstalk = beanstalkm.Client()
-    >>> message = beanstalk({"say": "hey!"})
-    >>> message.send()
-    1
-    >>> beanstalk.queue.watch(DEFAULT_TUBE)
-    >>> message = beanstalk.reserve(timeout=0)
-    >>> str(message.body)
-    {"say": "hey!"}
-    >>> message.delete()
-    
+        >>> from beanstalkm import Client, DEFAULT_TUBE
+        >>> beanstalk = Client()
+        >>> message = beanstalk({"say": "hey!"})
+        >>> message.send()
+        1
+        >>> beanstalk.queue.watch(DEFAULT_TUBE)
+        2
+        >>> message = beanstalk.reserve(timeout=0)
+        >>> str(message.body)
+        "{'say': 'hey!'}"
+        >>> message.delete()  
+
+or
+
+        >>> import beanstalkm
+        >>> beanstalk = beanstalkm.Client(host="127.0.0.1", port=11300)
+        >>> message = beanstalk.put({"say": "hey!"})
+        >>> beanstalk.queue.watch(beanstalkm.DEFAULT_TUBE)
+        2
+        >>> message = beanstalk.reserve(timeout=0, drop=True)
+        >>> str(message.body)
+        "{'say': 'hey!'}"
+
 For more information, see [the tutorial](TUTORIAL.mkd), which will explain most
 everything.
 
