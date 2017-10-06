@@ -10,7 +10,6 @@ from hashlib import md5
 
 DEFAULT_HOST = '127.0.0.1'
 DEFAULT_PORT = 11300
-DEFAULT_SCHEMA = 'boom'
 DEFAULT_CONTEXT = 'message'
 DEFAULT_PRIORITY = 2 ** 31
 DEFAULT_TTR = 120
@@ -382,6 +381,6 @@ if __name__ == '__main__':
     mta = Client()
     msg = mta({"test": "Какой то текст на русском языке"}, subscribe="press.root.subscribe.notify")
     # print(msg.as_dict())
-    msg.send(tube="inbox")
+    msg.send(tube=DEFAULT_TUBE)
     mta.queue.watch(DEFAULT_TUBE)
     print(mta.reserve(timeout=0, drop=True))
