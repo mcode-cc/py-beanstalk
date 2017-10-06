@@ -44,7 +44,7 @@ or
         >>> str(message.body)
         "{'say': 'hey!'}"
 
-For more information, see [the tutorial](TUTORIAL.mkd), which will explain most
+For more information, see [the tutorial](TUTORIAL.md), which will explain most
 everything.
 
 
