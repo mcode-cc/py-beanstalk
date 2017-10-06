@@ -37,7 +37,7 @@ base_dir = os.path.dirname(__file__)
 about = {}
 if base_dir:
     os.chdir(base_dir)
-with open(os.path.join(base_dir, "boom", "__about__.py")) as f:
+with open(os.path.join(base_dir, "beanstalkm", "__about__.py")) as f:
     exec(f.read(), about)
 
 with open(os.path.join(base_dir, "README.rst")) as f:
@@ -54,9 +54,7 @@ setup(
     author=about["__author__"],
     author_email=about["__email__"],
     platforms=('Any'),
-    install_requires={
-        'uritools>=2.0.0'
-    },
+    install_requires={},
     packages=find_packages(),
     include_package_data=True,
     test_suite='test',
@@ -69,8 +67,8 @@ setup(
         "Environment :: Console",
         "Intended Audience :: Developers",
         "Operating System :: OS Independent",
-        "Programming Language :: Python :: 2.6",
-        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Internet",
@@ -80,5 +78,5 @@ setup(
         "Topic :: Software Development :: Libraries :: Application Frameworks",
         "Topic :: System :: Networking"
     ],
-    keywords='boom router queue beanstalkd'
+    keywords='queue beanstalkd'
 )

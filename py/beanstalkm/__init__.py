@@ -18,7 +18,7 @@ DEFAULT_DELAY = 0
 DEFAULT_TIMEOUT = 5
 DEFAULT_TUBE = "receive"
 
-__version__ = '0.7.1'
+__version__ = '0.7.2'
 
 
 def catch(default=None, message="%s"):
@@ -38,23 +38,23 @@ def catch(default=None, message="%s"):
     return decorator
 
 
-class BeanstalkcException(Exception):
+class BeanstalkmException(Exception):
     pass
 
 
-class UnexpectedResponse(BeanstalkcException):
+class UnexpectedResponse(BeanstalkmException):
     pass
 
 
-class CommandFailed(BeanstalkcException):
+class CommandFailed(BeanstalkmException):
     pass
 
 
-class DeadlineSoon(BeanstalkcException):
+class DeadlineSoon(BeanstalkmException):
     pass
 
 
-class SocketError(BeanstalkcException):
+class SocketError(BeanstalkmException):
     pass
 
 

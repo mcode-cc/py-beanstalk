@@ -39,11 +39,11 @@ __all__ = [
     "__copyright__"
 ]
 
-__title__ = "boom"
+__title__ = "beanstalkm"
 __summary__ = "Distributed streaming messaging system"
-__uri__ = "https://boom.mcode.cc/"
-__version__ = "0.6.7"
+__uri__ = "https://beanstalkm.mcode.cc/"
+__version__ = "0.7.2"
 __author__ = "MCode GmbH"
-__email__ = "boom@mcode.cc"
+__email__ = "beanstalkm@mcode.cc"
 __license__ = "GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007"
 __copyright__ = "2017 %s" % __author__
