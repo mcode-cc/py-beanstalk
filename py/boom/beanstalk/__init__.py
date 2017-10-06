@@ -4,7 +4,6 @@ import sys
 import os
 import socket
 import json
-import traceback
 from time import time
 from bson import json_util
 from hashlib import md5
@@ -19,7 +18,7 @@ DEFAULT_DELAY = 0
 DEFAULT_TIMEOUT = 5
 DEFAULT_TUBE = "receive"
 
-__version__ = '0.6.8'
+__version__ = '0.7.1'
 
 
 def catch(default=None, message="%s"):
@@ -57,48 +56,6 @@ class DeadlineSoon(BeanstalkcException):
 
 class SocketError(BeanstalkcException):
     pass
-
-
-class CallbackWrap(object):
-    def __init__(self, spot=None, log=None):
-        self.spot = spot
-        self.log = log
-        self.route = {}
-
-    def _method(self, method, schema=DEFAULT_SCHEMA):
-        source = self if schema == DEFAULT_SCHEMA else globals().get(schema)
-        for name in method.split('.'):
-            if source is not None:
-                source = getattr(source, name, None)
-        return source
-
-    @catch()
-    def _do(self, method, *args, **kwargs):
-        return method(*args, **kwargs)
-
-    def _callback(self, message, channel=None):
-        args = [message]
-        kwargs = {"channel": channel}
-        method = self.receive
-        if isinstance(message.subscribe, dict):
-            _subscribe = '{spot}.{schema}.{method}'.format(**message.subscribe)
-            if _subscribe in self.route:
-                method = self.route[_subscribe]
-            elif message.subscribe["spot"] == self.spot:
-                method = self._method(message.subscribe["method"], message.subscribe["schema"]) or method
-        elif message.subscribe in self.route:
-            method = self.route[message.subscribe]
-        if is_context(message.body, "callback"):
-            args = message.body.get("args", [])
-            kwargs = message.body.get("kwargs", {})
-        return self._do(method, *args, **kwargs)
-
-    def add(self, schema=None, method=None, callback=None):
-        if callback is not None:
-            self.route['.'.join((self.spot, schema, method))] = callback
-
-    def receive(self, *args, **kwargs):
-        pass
 
 
 class CommandsWrap(object):
@@ -211,7 +168,7 @@ class Connection(object):
         """Close connection to server."""
         if self.socket is not None:
             try:
-                self.socket.sendall('quit\r\n')
+                self.socket.sendall(b'quit\r\n')
             except socket.error:
                 pass
             try:
@@ -225,55 +182,23 @@ class Connection(object):
         self.connect()
 
 
-def hashing(value):
-    result = None
-    try:
-        _dump = json.dumps(
-            value,
-            sort_keys=True,
-            separators=(',', ':'),
-            default=json_util.default
-        ).encode()
-    except Exception as e:
-        error_print("Create a hashing fails: %s" % str(e))
-    else:
-        result = md5(_dump).hexdigest()
-    return result
-
-
-def _trace():
-    result = None
-    _type, _value, _traceback = sys.exc_info()
-    if _type is not None:
-        result = {
-            "error": _type.__name__,
-            "fields": {
-                "value": str(_value),
-                "traceback": traceback.extract_tb(_traceback)
-            }
-        }
-    return result
-
-
-class MTA(Connection):
+class Client(Connection):
 
     def __init__(self, log=None, host=DEFAULT_HOST, port=DEFAULT_PORT, timeout=None):
-        super(MTA, self).__init__(log, host, port, timeout)
+        super(Client, self).__init__(log, host, port, timeout)
         self.sender = {"host": os.uname()[1], "pid": os.getpid(), "time": time(), "version": __version__}
 
     # -- public interface --
 
     def put(
-            self, message, tube=DEFAULT_TUBE, subscribe=None,
+            self, message, tube=DEFAULT_TUBE, subscribe=None, sender=None,
             priority=DEFAULT_PRIORITY, delay=DEFAULT_DELAY, ttr=DEFAULT_TTR
     ):
         if not isinstance(message, Message):
-            message = Message(self.queue, message, reserved=False)
+            message = Message(self.queue, message, subscribe=subscribe, sender=sender)
         message.ttr = ttr
         message.delay = delay
         message.priority = priority
-        if subscribe is not None:
-            message.subscribe = subscribe
         message.send(tube)
         return message
 
@@ -302,81 +227,80 @@ class MTA(Connection):
         """Delete a job, by job id."""
         self.queue.delete(value)
 
-    def message(self, value, subscribe=None, sender=None, context=None):
-        result = Message(self.queue, value, reserved=False)
-        result.subscribe = subscribe
-        result.context = context
-        if result.sender is None:
-            result.sender = sender or self.sender
-        return result
+    def __call__(self, value, subscribe=None, sender=None):
+        return Message(self.queue, value, subscribe=subscribe, sender=sender)
 
 
 class Message(object):
-    def __init__(self, queue, body, uid=None, reserved=True):
+    def __init__(self, queue, body, uid=None, reserved=False, subscribe=None, sender=None):
         self._queue = queue
-        self.log = queue.log
         self._id = uid
-        self._context = DEFAULT_CONTEXT
-        self.priority = None
-        self.body = None
+        self.context = DEFAULT_CONTEXT
+        self._body = None
+        self._token = None
+        self._priority = DEFAULT_PRIORITY
         self.reserved = reserved
-        self.created = int(time())
-        self.sender = None
-        self.subscribe = None
-        self.errors = []
-        self.delay = 0
+        self.delay = DEFAULT_DELAY
         self.ttr = DEFAULT_TTR
+
+        self.created = {"$data": int(time()*1000)}
+        self.subscribe = subscribe
+        self.sender = sender or self._queue.connection.sender
+        self.errors = []
+
         self.indent = None
-        if isinstance(body, bytes):
-            body = bytes(body).decode()
-        if isinstance(body, str):
+        self.body = body
+
+    @property
+    def body(self):
+        return self._body
+
+    @body.setter
+    def body(self, value):
+        if isinstance(value, bytes):
+            value = bytes(value).decode()
+        if isinstance(value, str):
             try:
-                body = json.loads(body, object_hook=json_util.object_hook)
+                value = json.loads(value, object_hook=json_util.object_hook)
             except Exception as e:
                 error_print(str(e))
-                body = {}
-        if is_context(body, context=self._context):
-            self._load(body)
+        if isinstance(value, dict) and value.get("@context") == DEFAULT_CONTEXT:
+            self._body = value.get("body")
+            for k in ["created", "sender", "subscribe", "errors"]:
+                v = value.get(k)
+                if v is not None:
+                    self.__dict__[k] = v
         else:
-            self._init(body)
+            self._body = value
 
     @property
-    def context(self):
-        return self._context or DEFAULT_CONTEXT
-
-    @context.setter
-    def context(self, value):
-        self._context = value or DEFAULT_CONTEXT
+    def token(self):
+        if self._token is None:
+            try:
+                _dump = json.dumps(
+                    {"body": self.body},
+                    sort_keys=True,
+                    separators=(',', ':'),
+                    default=json_util.default
+                ).encode()
+            except Exception as e:
+                error_print("Create a hashing fails: %s" % str(e))
+            else:
+                self._token = md5(_dump).hexdigest()
+        return self._token
 
     @property
-    def _token(self):
-        if self.token is None:
-            self.token = hashing({
-                '@context': self._context,
-                "body": self.body
-            })
-        return self.token
-
-    @property
-    def _priority(self):
-        if self.priority is None:
-            self.priority = DEFAULT_PRIORITY
+    def priority(self):
+        if self._priority is None:
+            self._priority = DEFAULT_PRIORITY
             stats = self.stats()
             if isinstance(stats, dict) and 'pri' in stats:
-                self.priority = stats['pri']
-        return self.priority
+                self._priority = stats['pri']
+        return self._priority
 
-    def _load(self, content):
-        keys = ["body", "token", "created", "sender", "subscribe", "errors"]
-        self.__dict__.update(dict(zip(keys, [content.get(k) for k in keys])))
-
-    def _init(self, content):
-        self.__dict__.update({
-            "body": content,
-            "token": None,
-            "created": int(time()),
-            "sender": self._queue.connection.sender
-        })
+    @priority.setter
+    def priority(self, value):
+        self._priority = value
 
     # -- public interface --
 
@@ -416,15 +340,11 @@ class Message(object):
         return None if self._id is None else self._queue.stats_job(self._id)
 
     def as_dict(self):
-        result = {
-            '@context': self._context,
-            "body": self.body,
-            "token": self._token,
-            "created": self.created,
-            "sender": self.sender,
-        }
-        if self.subscribe is not None:
-            result["subscribe"] = self.subscribe
+        result = {"@context": self.context}
+        for key in ["body", "created", "subscribe", "sender", "token", "errors"]:
+            value = getattr(self, key)
+            if value is not None:
+                result[key] = value
         return result
 
     def __str__(self):
@@ -432,29 +352,25 @@ class Message(object):
             result = json.dumps(
                 self.as_dict(),
                 default=json_util.default,
+                ensure_ascii=False,
                 indent=self.indent,
-                sort_keys=True,
-                ensure_ascii=False
+                sort_keys=True
             )
         except Exception as e:
             result = "json dump a message fails: %s" % str(e)
         return result
 
     def send(self, tube=DEFAULT_TUBE):
-        try:
-            message = json.dumps(self.as_dict(), default=json_util.default)
-        except Exception as e:
-            self.errors.append("json dump a message fails: %s" % str(e))
-        else:
-            current = self._queue.using()
-            if current != tube:
-                self._queue.use(tube)
-            self._id = self._queue.put(
-                self._priority, self.delay, self.ttr, len(message), message
-            )
-            if current != tube:
-                self._queue.use(current)
-            self._queue.use("default")
+        message = json.dumps(self.as_dict(), default=json_util.default)
+        current = self._queue.using()
+        if current != tube:
+            self._queue.use(tube)
+        self._id = self._queue.put(
+            self.priority, self.delay, self.ttr, len(message), message
+        )
+        if current != tube:
+            self._queue.use(current)
+        self._queue.use("default")
         return self._id
 
 
@@ -462,15 +378,10 @@ def error_print(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
-def is_context(value, context=None):
-    context = context or DEFAULT_CONTEXT
-    return isinstance(value, dict) and '@context' in value and value['@context'] == context
-
-
 if __name__ == '__main__':
-    mta = MTA()
-    msg = mta.message({"test": 123})
-    msg.send()
+    mta = Client()
+    msg = mta({"test": "Какой то текст на русском языке"}, subscribe="press.root.subscribe.notify")
+    # print(msg.as_dict())
+    msg.send(tube="inbox")
     mta.queue.watch(DEFAULT_TUBE)
-    _message = mta.reserve(timeout=0)
-    print(_message)
+    print(mta.reserve(timeout=0, drop=True))
