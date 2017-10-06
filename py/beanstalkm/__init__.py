@@ -378,9 +378,9 @@ def error_print(*args, **kwargs):
 
 
 if __name__ == '__main__':
-    mta = Client()
-    msg = mta({"test": "Какой то текст на русском языке"}, subscribe="press.root.subscribe.notify")
+    client = Client()
+    msg = client({"test": "Какой то текст на русском языке"}, subscribe="press.root.subscribe.notify")
     # print(msg.as_dict())
     msg.send(tube=DEFAULT_TUBE)
-    mta.queue.watch(DEFAULT_TUBE)
-    print(mta.reserve(timeout=0, drop=True))
+    client.queue.watch(DEFAULT_TUBE)
+    print(client.reserve(timeout=0, drop=True))
