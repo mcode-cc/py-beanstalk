@@ -17,7 +17,7 @@ DEFAULT_DELAY = 0
 DEFAULT_TIMEOUT = 5
 DEFAULT_TUBE = "receive"
 
-__version__ = '0.7.2'
+__version__ = '0.7.4'
 
 
 def catch(default=None, message="%s"):
@@ -71,13 +71,12 @@ class CommandsWrap(object):
 class Commands(object):
     def __init__(self, connection=None, parse_yaml=True):
         self.connection = connection
-        self.log = connection.log
         self.parse_yaml = parse_yaml
         if parse_yaml is True:
             try:
                 self._yaml = __import__('yaml').load
             except ImportError:
-                self.log.error('Failed to load PyYAML, will not parse YAML')
+                error_print('Failed to load PyYAML, will not parse YAML')
                 self.parse_yaml = False
         api = os.path.dirname(os.path.realpath(__file__)) + '/api.json'
         with open(api) as _file:
@@ -125,8 +124,7 @@ class Commands(object):
 
 
 class Connection(object):
-    def __init__(self, log=None, host=DEFAULT_HOST, port=None, timeout=None):
-        self.log = log
+    def __init__(self, host=DEFAULT_HOST, port=None, timeout=None):
         self.host = host
         self.port = int(port or DEFAULT_PORT)
         self.timeout = timeout or socket.getdefaulttimeout()
@@ -183,8 +181,8 @@ class Connection(object):
 
 class Client(Connection):
 
-    def __init__(self, log=None, host=DEFAULT_HOST, port=DEFAULT_PORT, timeout=None):
-        super(Client, self).__init__(log, host, port, timeout)
+    def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT, timeout=None):
+        super(Client, self).__init__(host, port, timeout)
         self.sender = {"host": os.uname()[1], "pid": os.getpid(), "time": time(), "version": __version__}
 
     # -- public interface --
@@ -375,12 +373,3 @@ class Message(object):
 
 def error_print(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
-
-
-if __name__ == '__main__':
-    client = Client()
-    msg = client({"test": "Какой то текст на русском языке"}, subscribe="press.root.subscribe.notify")
-    # print(msg.as_dict())
-    msg.send(tube=DEFAULT_TUBE)
-    client.queue.watch(DEFAULT_TUBE)
-    print(client.reserve(timeout=0, drop=True))
