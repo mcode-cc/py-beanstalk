@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import sys
 import os
 import socket
@@ -7,6 +8,8 @@ import json
 from time import time
 from bson import json_util
 from hashlib import md5
+from builtins import bytes
+from past.builtins import basestring
 
 DEFAULT_HOST = '127.0.0.1'
 DEFAULT_PORT = 11300
@@ -17,7 +20,7 @@ DEFAULT_DELAY = 0
 DEFAULT_TIMEOUT = 5
 DEFAULT_TUBE = "receive"
 
-__version__ = '0.7.4'
+__version__ = '0.7.5'
 
 
 def catch(default=None, message="%s"):
@@ -93,7 +96,7 @@ class Commands(object):
         if name in self.api:
             command, (ok, errors), context = self.api[name]["meta"]
             args = [bytes(s).decode() if isinstance(s, bytes) else s for s in args]
-            command = bytes(str(command.format(*args)), 'utf8')
+            command = bytes(str(command.format(*args)).encode('utf8'))
             self.connection.wrap(self._socket.sendall, command)
             status, result = self.connection.read_response()
             if status in ok:
@@ -256,7 +259,7 @@ class Message(object):
     def body(self, value):
         if isinstance(value, bytes):
             value = bytes(value).decode()
-        if isinstance(value, str):
+        if isinstance(value, basestring):
             try:
                 value = json.loads(value, object_hook=json_util.object_hook)
             except Exception as e:
