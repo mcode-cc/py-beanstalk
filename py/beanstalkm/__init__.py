@@ -202,6 +202,7 @@ class Client(Connection):
 
     def reserve(self, timeout=None, drop=True):
         message = None
+<<<<<<< HEAD
         if self.socket is None and self.host is not None and self.port is not None:
             try:
                 self.reconnect()
@@ -223,9 +224,24 @@ class Client(Connection):
                     return None
             except SocketError:
                 self.socket = None
+=======
+        try:
+            if timeout is None:
+                message = self.queue.reserve()
+>>>>>>> parent of b678392... add reconnect_tube
             else:
-                if drop:
-                    message.delete()
+                message = self.queue('reserve_with_timeout', int(timeout))
+        except CommandFailed as e:
+            name, status, result = e.args
+            if status == 'TIMED_OUT':
+                return None
+            elif status == 'DEADLINE_SOON':
+                return None
+        except SocketError:
+            self.socket = None
+        else:
+            if drop:
+                message.delete()
         return message
 
     @catch(message="Delete a job failed: %s")
