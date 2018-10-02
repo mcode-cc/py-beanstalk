@@ -127,12 +127,13 @@ class Commands(object):
 
 
 class Connection(object):
-    def __init__(self, host=DEFAULT_HOST, port=None, timeout=None):
+    def __init__(self, host=DEFAULT_HOST, port=None, timeout=None, tube=DEFAULT_TUBE):
         self.host = host
         self.port = int(port or DEFAULT_PORT)
         self.timeout = timeout or socket.getdefaulttimeout()
         self.socket = None
         self.input = None
+        self.tube = tube
         self.queue = Commands(self)
 
     def wrap(self, method, *args, **kwargs):
@@ -202,13 +203,12 @@ class Client(Connection):
         message.send(tube)
         return message
 
-    def reserve(self, timeout=None, drop=True, reconnect_tube=None):
+    def reserve(self, timeout=None, drop=True):
         message = None
         if self.socket is None and self.host is not None and self.port is not None:
             try:
                 self.reconnect()
-                if reconnect_tube is not None:
-                    self.queue.watch(reconnect_tube)
+                self.queue.watch(self.tube)
             except Exception as e:
                 error_print("Connection error")
                 sleep(1)
