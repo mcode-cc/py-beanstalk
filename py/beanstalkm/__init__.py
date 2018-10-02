@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import sys
 import os
 import socket
 import json
-from time import time, sleep
+from time import time
 from bson import json_util
 from hashlib import md5
+from builtins import bytes
+from past.builtins import basestring
 
 DEFAULT_HOST = '127.0.0.1'
 DEFAULT_PORT = 11300
@@ -17,7 +20,7 @@ DEFAULT_DELAY = 0
 DEFAULT_TIMEOUT = 5
 DEFAULT_TUBE = "receive"
 
-__version__ = '0.7.4'
+__version__ = '0.7.5'
 
 
 def catch(default=None, message="%s"):
@@ -93,7 +96,7 @@ class Commands(object):
         if name in self.api:
             command, (ok, errors), context = self.api[name]["meta"]
             args = [bytes(s).decode() if isinstance(s, bytes) else s for s in args]
-            command = bytes(str(command.format(*args)), 'utf8')
+            command = bytes(str(command.format(*args)).encode('utf8'))
             self.connection.wrap(self._socket.sendall, command)
             status, result = self.connection.read_response()
             if status in ok:
@@ -124,13 +127,12 @@ class Commands(object):
 
 
 class Connection(object):
-    def __init__(self, host=DEFAULT_HOST, port=None, timeout=None, tube=DEFAULT_TUBE):
+    def __init__(self, host=DEFAULT_HOST, port=None, timeout=None):
         self.host = host
         self.port = int(port or DEFAULT_PORT)
         self.timeout = timeout or socket.getdefaulttimeout()
         self.socket = None
         self.input = None
-        self.tube = tube
         self.queue = Commands(self)
 
     def wrap(self, method, *args, **kwargs):
@@ -202,33 +204,9 @@ class Client(Connection):
 
     def reserve(self, timeout=None, drop=True):
         message = None
-<<<<<<< HEAD
-        if self.socket is None and self.host is not None and self.port is not None:
-            try:
-                self.reconnect()
-                self.queue.watch(self.tube)
-            except Exception as e:
-                error_print("Connection error")
-                sleep(1)
-        if self.socket is not None:
-            try:
-                if timeout is None:
-                    message = self.queue.reserve()
-                else:
-                    message = self.queue('reserve_with_timeout', int(timeout))
-            except CommandFailed as e:
-                name, status, result = e.args
-                if status == 'TIMED_OUT':
-                    return None
-                elif status == 'DEADLINE_SOON':
-                    return None
-            except SocketError:
-                self.socket = None
-=======
         try:
             if timeout is None:
                 message = self.queue.reserve()
->>>>>>> parent of b678392... add reconnect_tube
             else:
                 message = self.queue('reserve_with_timeout', int(timeout))
         except CommandFailed as e:
@@ -281,7 +259,7 @@ class Message(object):
     def body(self, value):
         if isinstance(value, bytes):
             value = bytes(value).decode()
-        if isinstance(value, str):
+        if isinstance(value, basestring):
             try:
                 value = json.loads(value, object_hook=json_util.object_hook)
             except Exception as e:
