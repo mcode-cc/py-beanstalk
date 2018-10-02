@@ -5,7 +5,7 @@ import sys
 import os
 import socket
 import json
-from time import time
+from time import time, sleep
 from bson import json_util
 from hashlib import md5
 from builtins import bytes
@@ -211,6 +211,7 @@ class Client(Connection):
                     self.queue.watch(reconnect_tube)
             except Exception as e:
                 error_print("Connection error")
+                sleep(1)
         if self.socket is not None:
             try:
                 if timeout is None:
