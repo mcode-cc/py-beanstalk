@@ -137,7 +137,10 @@ class Connection(object):
 
     def wrap(self, method, *args, **kwargs):
         try:
-            return method(*args, **kwargs)
+            self.socket.settimeout(self.timeout)
+            result = method(*args, **kwargs)
+            self.socket.settimeout(None)
+            return result
         except socket.error as e:
             self.socket = None
             raise SocketError(e)
