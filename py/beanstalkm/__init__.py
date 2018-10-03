@@ -134,6 +134,7 @@ class Connection(object):
         self.socket = None
         self.input = None
         self.queue = Commands(self)
+        self.tubes = []
 
     def wrap(self, method, *args, **kwargs):
         try:
@@ -166,6 +167,9 @@ class Connection(object):
         self.wrap(self.socket.connect, (self.host, self.port))
         self.socket.settimeout(None)
         self.input = self.socket.makefile('rb')
+        if len(self.tubes) > 0:
+            for tube in self.tubes:
+                self.queue.watch(tube)
 
     def close(self):
         """Close connection to server."""
@@ -224,6 +228,20 @@ class Client(Connection):
             if drop:
                 message.delete()
         return message
+
+    @catch(message="Watch a given tube failed: %s")
+    def watch(self, value):
+        """Watch a given tube."""
+        if value not in self.tubes:
+            self.tubes.append(value)
+        self.queue.watch(value)
+
+    @catch(message="Stop watching a given tube failed: %s")
+    def ignore(self, value):
+        """Stop watching a given tube."""
+        if value not in self.tubes:
+            self.tubes.remove(value)
+        self.queue.ignore(value)
 
     @catch(message="Delete a job failed: %s")
     def delete(self, value):
