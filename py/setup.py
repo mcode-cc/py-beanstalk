@@ -54,7 +54,7 @@ setup(
     author=about["__author__"],
     author_email=about["__email__"],
     platforms=('Any'),
-    install_requires={"future>=0.16.0", "pymongo>=3.4.0"},
+    install_requires=["future>=0.16.0", "pymongo>=3.4.0"],
     packages=find_packages(),
     include_package_data=True,
     test_suite='test',

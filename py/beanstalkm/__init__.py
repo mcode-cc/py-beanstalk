@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
+from .__about__ import __version__
 import sys
 import os
 import socket
@@ -19,8 +20,6 @@ DEFAULT_TTR = 120
 DEFAULT_DELAY = 0
 DEFAULT_TIMEOUT = 5
 DEFAULT_TUBE = "receive"
-
-__version__ = '0.7.5'
 
 
 def catch(default=None, message="%s"):
