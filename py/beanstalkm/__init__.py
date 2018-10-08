@@ -205,7 +205,7 @@ class Client(Connection):
         message.ttr = ttr
         message.delay = delay
         message.priority = priority
-        message.send(tube)
+        message.send(tube, queue=self.queue)
         return message
 
     def reserve(self, timeout=None, drop=True):
@@ -380,17 +380,16 @@ class Message(object):
             result = "json dump a message fails: %s" % str(e)
         return result
 
-    def send(self, tube=DEFAULT_TUBE):
+    def send(self, tube=DEFAULT_TUBE, queue=None):
+        queue = queue or self._queue
         message = json.dumps(self.as_dict(), default=json_util.default)
-        current = self._queue.using()
+        current = queue.using()
         if current != tube:
-            self._queue.use(tube)
-        self._id = self._queue.put(
-            self.priority, self.delay, self.ttr, len(message), message
-        )
+            queue.use(tube)
+        self._id = queue.put(self.priority, self.delay, self.ttr, len(message), message)
         if current != tube:
-            self._queue.use(current)
-        self._queue.use("default")
+            queue.use(current)
+        queue.use("default")
         return self._id
 
 
