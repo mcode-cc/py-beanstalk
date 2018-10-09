@@ -252,7 +252,7 @@ class Client(Connection):
 
 
 class Message(object):
-    def __init__(self, queue, body, uid=None, reserved=False, subscribe=None, sender=None):
+    def __init__(self, queue, body, uid=None, reserved=False, subscribe=None, sender=None, channel=None):
         self._queue = queue
         self._id = uid
         self.context = DEFAULT_CONTEXT
@@ -265,6 +265,7 @@ class Message(object):
 
         self.created = {"$data": int(time()*1000)}
         self.subscribe = subscribe
+        self.channel = channel
         self.sender = sender or self._queue.connection.sender
         self.errors = []
 
@@ -286,7 +287,7 @@ class Message(object):
                 error_print(str(e))
         if isinstance(value, dict) and value.get("@context") == DEFAULT_CONTEXT:
             self._body = value.get("body")
-            for k in ["created", "sender", "subscribe", "errors"]:
+            for k in ["created", "sender", "subscribe", "errors", "channel"]:
                 v = value.get(k)
                 if v is not None:
                     self.__dict__[k] = v
@@ -361,7 +362,7 @@ class Message(object):
 
     def as_dict(self):
         result = {"@context": self.context}
-        for key in ["body", "created", "subscribe", "sender", "token", "errors"]:
+        for key in ["body", "created", "subscribe", "sender", "token", "errors", "channel"]:
             value = getattr(self, key)
             if value is not None:
                 result[key] = value
@@ -380,17 +381,19 @@ class Message(object):
             result = "json dump a message fails: %s" % str(e)
         return result
 
-    def send(self, tube=DEFAULT_TUBE, queue=None):
+    def send(self, tube=DEFAULT_TUBE, queue=None, update_id=True):
         queue = queue or self._queue
         message = json.dumps(self.as_dict(), default=json_util.default)
         current = queue.using()
         if current != tube:
             queue.use(tube)
-        self._id = queue.put(self.priority, self.delay, self.ttr, len(message), message)
+        _id = queue.put(self.priority, self.delay, self.ttr, len(message), message)
+        if update_id:
+            self._id = _id
         if current != tube:
             queue.use(current)
         queue.use("default")
-        return self._id
+        return _id
 
 
 def error_print(*args, **kwargs):
