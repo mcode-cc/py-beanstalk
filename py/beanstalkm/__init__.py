@@ -200,12 +200,16 @@ class Client(Connection):
             self, message, tube=DEFAULT_TUBE, subscribe=None, sender=None,
             priority=DEFAULT_PRIORITY, delay=DEFAULT_DELAY, ttr=DEFAULT_TTR
     ):
-        if not isinstance(message, Message):
-            message = Message(self.queue, message, subscribe=subscribe, sender=sender)
+        message = Message(
+            self.queue,
+            message.as_dict() if isinstance(message, Message) else message,
+            subscribe=subscribe,
+            sender=sender
+        )
         message.ttr = ttr
         message.delay = delay
         message.priority = priority
-        message.send(tube, queue=self.queue)
+        message.send(tube)
         return message
 
     def reserve(self, timeout=None, drop=True):
@@ -273,6 +277,10 @@ class Message(object):
         self.body = body
 
     @property
+    def uid(self):
+        return int(self._id or 0)
+
+    @property
     def body(self):
         return self._body
 
@@ -287,7 +295,7 @@ class Message(object):
                 error_print(str(e))
         if isinstance(value, dict) and value.get("@context") == DEFAULT_CONTEXT:
             self._body = value.get("body")
-            for k in ["created", "sender", "subscribe", "errors", "channel"]:
+            for k in ["created", "sender", "subscribe", "channel", "errors"]:
                 v = value.get(k)
                 if v is not None:
                     self.__dict__[k] = v
@@ -333,10 +341,10 @@ class Message(object):
             self._id = None
         self.reserved = False
 
-    def release(self, delay=0):
+    def release(self, delay=None):
         """Release this message back into the ready queue."""
         if self.reserved:
-            self._queue.release(self._id, self._priority, delay)
+            self._queue.release(self._id, self._priority, delay or self.delay)
             self.reserved = False
 
     def bury(self):
@@ -362,7 +370,7 @@ class Message(object):
 
     def as_dict(self):
         result = {"@context": self.context}
-        for key in ["body", "created", "subscribe", "sender", "token", "errors", "channel"]:
+        for key in ["body", "created", "subscribe", "channel", "sender", "token", "errors"]:
             value = getattr(self, key)
             if value is not None:
                 result[key] = value
@@ -381,19 +389,15 @@ class Message(object):
             result = "json dump a message fails: %s" % str(e)
         return result
 
-    def send(self, tube=DEFAULT_TUBE, queue=None, update_id=True):
-        queue = queue or self._queue
+    def send(self, tube=DEFAULT_TUBE):
         message = json.dumps(self.as_dict(), default=json_util.default)
-        current = queue.using()
+        current = self._queue.using()
         if current != tube:
-            queue.use(tube)
-        _id = queue.put(self.priority, self.delay, self.ttr, len(message), message)
-        if update_id:
-            self._id = _id
+            self._queue.use(tube)
+        self._id = self._queue.put(self.priority, self.delay, self.ttr, len(message), message)
         if current != tube:
-            queue.use(current)
-        queue.use("default")
-        return _id
+            self._queue.use(current)
+        return self._id
 
 
 def error_print(*args, **kwargs):
