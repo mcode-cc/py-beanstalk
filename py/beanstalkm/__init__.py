@@ -295,7 +295,12 @@ class Message(object):
                 error_print(str(e))
         if isinstance(value, dict) and value.get("@context") == DEFAULT_CONTEXT:
             self._body = value.get("body")
-            for k in ["created", "sender", "subscribe", "channel", "errors"]:
+            if "created" in value:
+                if isinstance(value["created"], dict) and "$data" in value["created"]:
+                    self.created = value["created"]
+                elif isinstance(value["created"], int):
+                    self.created = {"$data": int(value["created"] * 1000)}
+            for k in ["sender", "subscribe", "channel", "errors"]:
                 v = value.get(k)
                 if v is not None:
                     self.__dict__[k] = v
