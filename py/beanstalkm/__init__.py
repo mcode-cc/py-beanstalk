@@ -7,6 +7,7 @@ import os
 import socket
 import json
 from time import time
+from datetime import datetime
 from bson import json_util
 from hashlib import md5
 from builtins import bytes
@@ -298,7 +299,7 @@ class Message(object):
             if "created" in value:
                 if isinstance(value["created"], dict) and "$data" in value["created"]:
                     self.created = value["created"]
-                elif isinstance(value["created"], int):
+                elif isinstance(value["created"], (int, float)):
                     self.created = {"$data": int(value["created"] * 1000)}
             for k in ["sender", "subscribe", "channel", "errors"]:
                 v = value.get(k)
@@ -306,6 +307,14 @@ class Message(object):
                     self.__dict__[k] = v
         else:
             self._body = value
+
+    @property
+    def utc(self):
+        return datetime.utcfromtimestamp(1.0 * self.created["$data"] / 1000)
+
+    @property
+    def timestamp(self):
+        return 1.0 * self.created["$data"] / 1000
 
     @property
     def token(self):
