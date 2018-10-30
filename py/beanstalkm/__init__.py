@@ -285,7 +285,6 @@ class Message(object):
 
         self.indent = None
         self.body = body
-        self.schema = MESSAGE_JSON_SCHEMA
 
     @property
     def uid(self):
@@ -368,7 +367,7 @@ class Message(object):
     def validate(self, value):
         try:
             jsonschema.validate(
-                value, self.schema,
+                value, MESSAGE_JSON_SCHEMA,
                 format_checker=jsonschema.FormatChecker()
             )
         except Exception as e:

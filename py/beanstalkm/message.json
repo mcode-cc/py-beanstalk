@@ -20,7 +20,7 @@
                     {
                         "description": "MongoDB date fields",
                         "type": "object",
-                        "required": ["$date"],
+                        "required": ["$data"],
                         "properties": {
                             "$date": {"type": "integer"}
                         },
