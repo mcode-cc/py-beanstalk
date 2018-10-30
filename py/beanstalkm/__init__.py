@@ -6,6 +6,7 @@ import sys
 import os
 import socket
 import json
+import jsonschema
 from time import time
 from datetime import datetime
 from bson import json_util
@@ -21,6 +22,16 @@ DEFAULT_TTR = 120
 DEFAULT_DELAY = 0
 DEFAULT_TIMEOUT = 5
 DEFAULT_TUBE = "receive"
+
+MESSAGE_JSON = os.path.dirname(os.path.realpath(__file__)) + '/message.json'
+
+with open(MESSAGE_JSON) as f:
+    MESSAGE_JSON_SCHEMA = json.load(f)
+
+API_JSON = os.path.dirname(os.path.realpath(__file__)) + '/api.json'
+
+with open(API_JSON) as f:
+    DEFAULT_API = json.load(f)
 
 
 def catch(default=None, message="%s"):
@@ -81,9 +92,7 @@ class Commands(object):
             except ImportError:
                 error_print('Failed to load PyYAML, will not parse YAML')
                 self.parse_yaml = False
-        api = os.path.dirname(os.path.realpath(__file__)) + '/api.json'
-        with open(api) as _file:
-            self.api = json.load(_file)
+        self.api = DEFAULT_API
         self.wrap = CommandsWrap(self)
 
     @property
@@ -257,7 +266,7 @@ class Client(Connection):
 
 
 class Message(object):
-    def __init__(self, queue, body, uid=None, reserved=False, subscribe=None, sender=None, channel=None):
+    def __init__(self, queue, body, uid=None, reserved=False, subscribe=None, sender=None, channel=None, noise=False):
         self._queue = queue
         self._id = uid
         self.context = DEFAULT_CONTEXT
@@ -267,7 +276,7 @@ class Message(object):
         self.reserved = reserved
         self.delay = DEFAULT_DELAY
         self.ttr = DEFAULT_TTR
-
+        self.noise = noise
         self.created = {"$data": int(time()*1000)}
         self.subscribe = subscribe
         self.channel = channel
@@ -276,6 +285,7 @@ class Message(object):
 
         self.indent = None
         self.body = body
+        self.schema = MESSAGE_JSON_SCHEMA
 
     @property
     def uid(self):
@@ -294,7 +304,7 @@ class Message(object):
                 value = json.loads(value, object_hook=json_util.object_hook)
             except Exception as e:
                 error_print(str(e))
-        if isinstance(value, dict) and value.get("@context") == DEFAULT_CONTEXT:
+        if isinstance(value, dict) and value.get("@context") == DEFAULT_CONTEXT and self.validate(value):
             self._body = value.get("body")
             if "created" in value:
                 if isinstance(value["created"], dict) and "$data" in value["created"]:
@@ -354,6 +364,18 @@ class Message(object):
             self._queue.delete(self._id)
             self._id = None
         self.reserved = False
+
+    def validate(self, value):
+        try:
+            jsonschema.validate(
+                value, self.schema,
+                format_checker=jsonschema.FormatChecker()
+            )
+        except Exception as e:
+            if self.noise:
+                raise Exception(e)
+            return False
+        return True
 
     def release(self, delay=None):
         """Release this message back into the ready queue."""
