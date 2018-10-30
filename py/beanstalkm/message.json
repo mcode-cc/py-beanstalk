@@ -22,7 +22,7 @@
                         "type": "object",
                         "required": ["$data"],
                         "properties": {
-                            "$date": {"type": "integer"}
+                            "$data": {"type": "integer"}
                         },
                         "additionalProperties": false
                     }
