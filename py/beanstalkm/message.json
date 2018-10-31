@@ -45,6 +45,14 @@
                 "uid": {
                     "description": "User UID",
                     "type": "string"
+                },
+                "ua": {
+                    "description": "User Agent",
+                    "type": "string"
+                },
+                "referer": {
+                    "description": "The HTTP referer is an HTTP header field that identifies",
+                    "type": "string"
                 }
             },
             "additionalProperties": false
