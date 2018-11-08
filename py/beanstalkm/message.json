@@ -67,7 +67,7 @@
                     "type": "number"
                 }
             },
-            "additionalProperties": false
+            "additionalProperties": true
         },
         "subscribe": {
             "description": "Subscribe URI",

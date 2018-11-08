@@ -280,7 +280,9 @@ class Message(object):
         self.created = {"$data": int(time()*1000)}
         self.subscribe = subscribe
         self.channel = channel
-        self.sender = sender or self._queue.connection.sender
+        self.sender = self._queue.connection.sender
+        if isinstance(sender, dict):
+            self.sender.update(sender)
         self.errors = []
 
         self.indent = None
