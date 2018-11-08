@@ -32,7 +32,7 @@
         "sender": {
             "description": "Sender",
             "type": "object",
-            "required": ["host", "ip", "uid"],
+            "required": ["host"],
             "properties": {
                 "host": {
                     "description": "Host of page",
@@ -53,6 +53,18 @@
                 "referer": {
                     "description": "The HTTP referer is an HTTP header field that identifies",
                     "type": "string"
+                },
+                "version": {
+                    "description": "Sender version",
+                    "type": "string"
+                },
+                "pid": {
+                    "description": "Sender Process ID",
+                    "type": "integer"
+                },
+                "time": {
+                    "description": "Init Process Time",
+                    "type": "number"
                 }
             },
             "additionalProperties": false
