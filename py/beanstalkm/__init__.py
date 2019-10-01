@@ -88,7 +88,7 @@ class Commands(object):
         self.parse_yaml = parse_yaml
         if parse_yaml is True:
             try:
-                self._yaml = __import__('yaml').load
+                self._yaml = __import__('yaml').full_load
             except ImportError:
                 error_print('Failed to load PyYAML, will not parse YAML')
                 self.parse_yaml = False
