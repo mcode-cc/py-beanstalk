@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from beanstalkm import Client, DEFAULT_TUBE
+from beanstalkm import Client, Message, DEFAULT_TUBE
 
 
 class TestMethods(unittest.TestCase):
@@ -13,7 +13,7 @@ class TestMethods(unittest.TestCase):
         _token = message.token
         client.queue.watch(DEFAULT_TUBE)
         message = client.reserve(timeout=0, drop=True)
-        self.assertTrue(message is not None and _token == message.token)
+        self.assertFalse(isinstance(message, Message) and _token == message.token)
 
 
 if __name__ == '__main__':
