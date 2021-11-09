@@ -6,7 +6,6 @@ import sys
 import os
 import socket
 import json
-import jsonschema
 from time import time
 from datetime import datetime
 from bson import json_util
@@ -368,9 +367,13 @@ class Message(object):
 
     def validate(self, value):
         try:
-            jsonschema.validate(
+            j = __import__("jsonschema")
+        except:
+            return True
+        try:
+            j.validate(
                 value, MESSAGE_JSON_SCHEMA,
-                format_checker=jsonschema.FormatChecker()
+                format_checker=j.FormatChecker()
             )
         except Exception as e:
             if self.noise:
