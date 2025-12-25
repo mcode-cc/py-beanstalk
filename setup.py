@@ -55,6 +55,7 @@ setup(
     version=about["__version__"],
     description=about["__summary__"],
     long_description=long_description,
+    long_description_content_type="text/markdown",
     license=about["__license__"],
     url=about["__uri__"],
     author=about["__author__"],

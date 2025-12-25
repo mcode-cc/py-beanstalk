@@ -1,6 +1,6 @@
 [![PyPI](https://img.shields.io/pypi/v/beanstalkm)](https://pypi.org/project/beanstalkm/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/beanstalkm)
-[![PyPI - License](https://img.shields.io/pypi/l/beanstalkm)](https://github.com/mcode-cc/py-beanstalk/blob/master/py/LICENSE)
+[![PyPI - License](https://img.shields.io/pypi/l/beanstalkm)](https://github.com/mcode-cc/py-beanstalk/blob/master/LICENSE)
 
 beanstalkm
 ==========
