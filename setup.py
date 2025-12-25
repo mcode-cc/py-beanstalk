@@ -28,7 +28,6 @@
 #
 #####################################################################################
 
-from __future__ import absolute_import
 import os
 from setuptools import setup, find_packages
 
@@ -43,6 +42,13 @@ with open(os.path.join(base_dir, "beanstalkm", "__about__.py")) as f:
 with open(os.path.join(base_dir, "README.md")) as f:
     long_description = f.read()
 
+def parse_requirements_file(filename):
+    with open(filename) as fid:
+        requires = [ln.strip() for ln in fid.readlines() if not ln.startswith("#")]
+    return requires
+
+
+install_requires = parse_requirements_file("requirements.txt")
 
 setup(
     name=about["__title__"],
@@ -53,12 +59,12 @@ setup(
     url=about["__uri__"],
     author=about["__author__"],
     author_email=about["__email__"],
-    platforms=('Any'),
-    install_requires=["future>=0.16.0", "pymongo>=3.4.0", "PyYAML>=5.1.2"],
+    platforms=("Any"),
+    install_requires=install_requires,
     packages=find_packages(),
     include_package_data=True,
-    test_suite='test',
-    data_files=[('.', ['LICENSE', 'COPYRIGHT'])],
+    test_suite="test",
+    data_files=[(".", ["LICENSE", "COPYRIGHT"])],
     zip_safe=False,
     classifiers=[
         "License :: OSI Approved :: GNU Affero General Public License v3",
@@ -68,16 +74,21 @@ setup(
         "Intended Audience :: Developers",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Internet",
         "Topic :: Communications",
         "Topic :: Database",
         "Topic :: Software Development :: Libraries",
-        "Topic :: Software Development :: Libraries :: Application Frameworks",
+        "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: System :: Networking"
     ],
-    keywords='queue beanstalkd'
+    keywords="queue beanstalkd"
 )

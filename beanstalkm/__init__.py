@@ -13,21 +13,21 @@ from hashlib import md5
 from builtins import bytes
 from past.builtins import basestring
 
-DEFAULT_HOST = '127.0.0.1'
+DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 11300
-DEFAULT_CONTEXT = 'message'
+DEFAULT_CONTEXT = "message"
 DEFAULT_PRIORITY = 2 ** 31
 DEFAULT_TTR = 120
 DEFAULT_DELAY = 0
 DEFAULT_TIMEOUT = 5
 DEFAULT_TUBE = "receive"
 
-MESSAGE_JSON = os.path.dirname(os.path.realpath(__file__)) + '/message.json'
+MESSAGE_JSON = os.path.dirname(os.path.realpath(__file__)) + "/message.json"
 
 with open(MESSAGE_JSON) as f:
     MESSAGE_JSON_SCHEMA = json.load(f)
 
-API_JSON = os.path.dirname(os.path.realpath(__file__)) + '/api.json'
+API_JSON = os.path.dirname(os.path.realpath(__file__)) + "/api.json"
 
 with open(API_JSON) as f:
     DEFAULT_API = json.load(f)
@@ -87,9 +87,9 @@ class Commands(object):
         self.parse_yaml = parse_yaml
         if parse_yaml is True:
             try:
-                self._yaml = __import__('yaml').full_load
+                self._yaml = __import__("yaml").full_load
             except ImportError:
-                error_print('Failed to load PyYAML, will not parse YAML')
+                error_print("Failed to load PyYAML, will not parse YAML")
                 self.parse_yaml = False
         self.api = DEFAULT_API
         self.wrap = CommandsWrap(self)
@@ -174,7 +174,7 @@ class Connection(object):
         self.socket.settimeout(self.timeout)
         self.wrap(self.socket.connect, (self.host, self.port))
         self.socket.settimeout(None)
-        self.input = self.socket.makefile('rb')
+        self.input = self.socket.makefile("rb")
         if len(self.tubes) > 0:
             for tube in self.tubes:
                 self.queue.watch(tube)
@@ -183,7 +183,7 @@ class Connection(object):
         """Close connection to server."""
         if self.socket is not None:
             try:
-                self.socket.sendall(b'quit\r\n')
+                self.socket.sendall(b"quit\r\n")
             except socket.error:
                 pass
             try:
@@ -333,7 +333,7 @@ class Message(object):
                 _dump = json.dumps(
                     {"body": self.body},
                     sort_keys=True,
-                    separators=(',', ':'),
+                separators=(",", ":"),
                     default=json_util.default
                 ).encode()
             except Exception as e:
@@ -347,8 +347,8 @@ class Message(object):
         if self._priority is None:
             self._priority = DEFAULT_PRIORITY
             stats = self.stats()
-            if isinstance(stats, dict) and 'pri' in stats:
-                self._priority = stats['pri']
+            if isinstance(stats, dict) and "pri" in stats:
+                self._priority = stats["pri"]
         return self._priority
 
     @priority.setter
